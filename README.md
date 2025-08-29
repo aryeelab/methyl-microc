@@ -30,7 +30,7 @@ Before setting up this environment, ensure you have:
 ```bash
 # Activate the conda environment
 source ~/.zshrc  # or ~/.bashrc for bash users
-conda activate methylseq-env
+conda activate methyl-microc
 
 # Verify installations
 nextflow -version
@@ -67,10 +67,10 @@ The pipeline will automatically:
 
 ```bash
 # Create the environment with Python 3.11
-conda create -n methylseq-env python=3.11 -y
+conda create -n methyl-microc python=3.11 -y
 
 # Activate the environment
-conda activate methylseq-env
+conda activate methyl-microc
 
 # Install required packages
 conda install -c bioconda nextflow nf-core -y
@@ -86,6 +86,51 @@ conda install -c bioconda bwameth bwa methyldackel trim-galore fastqc multiqc sa
 bwameth.py --version
 bwa
 MethylDackel --version
+```
+
+### Step 3: Download and Index GRCh38 Reference Genome (Optional but Recommended)
+
+Pre-downloading the reference genome eliminates network timeouts and speeds up pipeline runs:
+
+```bash
+# Create reference directory
+mkdir -p references/GRCh38
+
+# Download GRCh38 reference genome (245MB compressed, ~800MB uncompressed)
+cd references/GRCh38
+curl -L -C - -o GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz \
+  'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz'
+
+# Extract the reference genome
+gunzip GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz
+
+# Create bwa-meth index (this takes 1-2 hours and ~15-20GB disk space)
+conda activate methyl-microc
+bwameth.py index GCA_000001405.15_GRCh38_no_alt_analysis_set.fna
+
+# Return to project directory
+cd ../..
+```
+
+**Alternative download sources:**
+```bash
+# Option A: UCSC Genome Browser
+curl -L -o hg38.fa.gz "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.fa.gz"
+
+# Option B: Ensembl
+curl -L -o Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz \
+  "https://ftp.ensembl.org/pub/release-110/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz"
+```
+
+**Quick test with chromosome 22 only:**
+```bash
+# For faster testing, download just chromosome 22 (~1.5MB)
+mkdir -p references/chr22
+cd references/chr22
+curl -L -o chr22.fa.gz "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/chromosomes/chr22.fa.gz"
+gunzip chr22.fa.gz
+bwameth.py index chr22.fa
+cd ../..
 ```
 
 ### Step 3: Download nf-core/methylseq Pipeline
@@ -168,9 +213,9 @@ params {
 
 ```bash
 # Activate environment
-conda activate methylseq-env
+conda activate methyl-microc
 
-# Run with your own data
+# Option A: Run with your own data using remote genome (requires internet)
 nextflow run nf-core/methylseq \
     -profile conda \
     --input your_samplesheet.csv \
@@ -178,12 +223,28 @@ nextflow run nf-core/methylseq \
     --genome GRCh38 \
     --aligner bwameth \
     --max_cpus 8
+
+# Option B: Run with local reference genome (faster, no internet required)
+nextflow run nf-core/methylseq \
+    -profile conda \
+    --input your_samplesheet.csv \
+    --outdir results \
+    --fasta $PWD/references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna \
+    --aligner bwameth \
+    --max_cpus 8
+
+# Option C: Use the local reference configuration profile
+nextflow run nf-core/methylseq \
+    -profile conda,local_reference \
+    --input your_samplesheet.csv \
+    --outdir results \
+    --max_cpus 8
 ```
 
 ### Advanced Options
 
 ```bash
-# Run with custom parameters
+# Run with custom parameters using remote genome
 nextflow run nf-core/methylseq \
     -profile conda \
     --input samplesheet.csv \
@@ -197,6 +258,32 @@ nextflow run nf-core/methylseq \
     --num_mismatches 0.6 \
     --clip_r1 10 \
     --clip_r2 10 \
+    --max_cpus 8
+
+# Run with custom parameters using local reference
+nextflow run nf-core/methylseq \
+    -profile conda \
+    --input samplesheet.csv \
+    --outdir results \
+    --fasta $PWD/references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna \
+    --aligner bwameth \
+    --save_reference \
+    --save_trimmed \
+    --save_align_intermeds \
+    --cytosine_report \
+    --relax_mismatches \
+    --num_mismatches 0.6 \
+    --clip_r1 10 \
+    --clip_r2 10 \
+    --max_cpus 8
+
+# Quick test with chromosome 22 only
+nextflow run nf-core/methylseq \
+    -profile conda \
+    --input samplesheet.csv \
+    --outdir results_chr22 \
+    --fasta $PWD/references/chr22/chr22.fa \
+    --aligner bwameth \
     --max_cpus 8
 ```
 
@@ -256,6 +343,38 @@ This setup uses **bwa-meth** as the primary methylation sequence aligner, which 
 5. **Methylation Extraction**: MethylDackel extracts methylation calls from alignments
 6. **Quality Assessment**: MultiQC aggregates all quality metrics and results
 
+## Local Reference Configuration
+
+This setup includes a `local_reference` configuration profile that automatically uses your downloaded GRCh38 reference:
+
+### **Benefits of Local Reference**
+- ✅ **No network dependency**: Avoid download timeouts and connection issues
+- ✅ **Faster startup**: Skip reference download step (saves 10-30 minutes)
+- ✅ **Reproducible**: Same reference version every time
+- ✅ **Offline capability**: Run without internet connection
+- ✅ **Storage efficient**: Reuse index across multiple runs
+
+### **Local Reference Files**
+After downloading and indexing, you'll have:
+```
+references/GRCh38/
+├── GCA_000001405.15_GRCh38_no_alt_analysis_set.fna          # Original reference (~800MB)
+├── GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bwameth.c2t     # C→T converted reference
+├── GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bwameth.c2t.amb # BWA index files
+├── GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bwameth.c2t.ann # (~15-20GB total)
+├── GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bwameth.c2t.bwt
+├── GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bwameth.c2t.pac
+└── GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bwameth.c2t.sa
+```
+
+### **Checking Index Completion**
+```bash
+# Verify all index files are present
+ls -la references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bwameth.c2t.*
+
+# Should show: .amb, .ann, .bwt, .pac, .sa files
+```
+
 ## Troubleshooting
 
 ### Common Issues
@@ -268,9 +387,9 @@ conda init zsh  # or bash
 source ~/.zshrc  # or ~/.bashrc
 
 # Recreate environment if needed
-conda env remove -n methylseq-env
-conda create -n methylseq-env python=3.11 -y
-conda activate methylseq-env
+conda env remove -n methyl-microc
+conda create -n methyl-microc python=3.11 -y
+conda activate methyl-microc
 conda install -c bioconda nextflow nf-core bwameth bwa methyldackel trim-galore fastqc multiqc samtools -y
 ```
 
@@ -294,9 +413,9 @@ conda init zsh  # or bash
 source ~/.zshrc  # or ~/.bashrc
 
 # Recreate environment if needed
-conda env remove -n methylseq-env
-conda create -n methylseq-env python=3.11 -y
-conda activate methylseq-env
+conda env remove -n methyl-microc
+conda create -n methyl-microc python=3.11 -y
+conda activate methyl-microc
 conda install -c bioconda nextflow nf-core -y
 ```
 
@@ -314,6 +433,40 @@ conda install -c bioconda fastqc -y
 bwameth.py --version
 bwa
 MethylDackel --version
+```
+
+#### 5. Reference Genome Download Issues
+
+```bash
+# If reference download fails, try alternative sources
+# Option A: Resume interrupted download
+curl -L -C - -o GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz \
+  'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz'
+
+# Option B: Use UCSC source
+curl -L -o hg38.fa.gz "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.fa.gz"
+
+# Option C: Use Ensembl source
+curl -L -o Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz \
+  "https://ftp.ensembl.org/pub/release-110/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz"
+```
+
+#### 6. Index Creation Issues
+
+```bash
+# If bwa-meth indexing fails or is interrupted
+cd references/GRCh38
+
+# Remove incomplete index files
+rm -f *.bwameth.c2t*
+
+# Restart indexing
+conda activate methyl-microc
+bwameth.py index GCA_000001405.15_GRCh38_no_alt_analysis_set.fna
+
+# Monitor progress (indexing takes 1-2 hours)
+# Check available disk space (needs ~20GB free)
+df -h .
 ```
 
 ### Getting Help
@@ -336,7 +489,7 @@ conda deactivate
 
 ```bash
 # Update to the latest version
-conda activate methylseq-env
+conda activate methyl-microc
 nextflow pull nf-core/methylseq
 
 # Check for updates to nf-core tools
@@ -353,7 +506,7 @@ rm -rf work/
 conda clean --all -y
 
 # Remove conda environment (if needed)
-conda env remove -n methylseq-env
+conda env remove -n methyl-microc
 ```
 
 ## File Descriptions
@@ -362,6 +515,10 @@ conda env remove -n methylseq-env
 - **`environment.yml`**: Conda environment specification with all required tools
 - **`samplesheet.csv`**: Input sample sheet defining your data
 - **`conf/test.config`**: Test-specific configuration parameters
+- **`conf/local_reference.config`**: Configuration for using local reference genome
+- **`references/`**: Directory for local reference genomes and indices
+  - `GRCh38/`: GRCh38 reference genome and bwa-meth index files
+  - `chr22/`: Chromosome 22 for quick testing (optional)
 - **`tests/`**: Directory containing test FASTQ files
   - `tiny_r1.fastq.gz`: Forward reads for testing
   - `tiny_r2.fastq.gz`: Reverse reads for testing

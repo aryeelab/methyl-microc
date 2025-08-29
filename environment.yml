@@ -1,4 +1,4 @@
-name: methylseq-tools
+name: methyl-microc
 channels:
   - conda-forge
   - bioconda
