@@ -1,0 +1,2 @@
+sample,fastq_1,fastq_2
+test_sample,tests/tiny_r1.fastq.gz,tests/tiny_r2.fastq.gz
