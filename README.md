@@ -1,13 +1,14 @@
 # Methyl-MicroC Analysis Environment
 
-A complete environment setup for running the nf-core/methylseq pipeline on methylation sequencing data using conda-based local execution.
+A complete environment setup for running the nf-core/methylseq pipeline on methylation sequencing data using conda-based local execution with bwa-meth aligner.
 
 ## Overview
 
-This repository provides a fully configured environment for analyzing bisulfite sequencing data using the nf-core/methylseq pipeline. The setup includes:
+This repository provides a fully configured environment for analyzing bisulfite sequencing data using the nf-core/methylseq pipeline with bwa-meth aligner. The setup includes:
 
 - Conda environment with Nextflow, nf-core tools, and all bioinformatics dependencies
 - Local conda-based execution (no Docker required)
+- bwa-meth based methylation analysis workflow
 - Pre-configured sample sheets and configuration files
 - Test data for validation
 - Comprehensive documentation and usage examples
@@ -20,7 +21,7 @@ Before setting up this environment, ensure you have:
 - **Homebrew** package manager
 - **Conda/Miniconda** available in your shell environment
 - At least 8GB of RAM and 20GB of free disk space
-- **Note**: Docker is NOT required for this conda-based setup
+- **Note**: Docker is NOT required for this conda-based setup, but can be used if desired
 
 ## Quick Start
 
@@ -34,7 +35,7 @@ conda activate methylseq-env
 # Verify installations
 nextflow -version
 nf-core --version
-bismark --version
+bwameth.py --version
 trim_galore --version
 ```
 
@@ -46,16 +47,18 @@ nextflow run nf-core/methylseq \
     -profile conda,test \
     --input samplesheet.csv \
     --outdir results \
-    --genome GRCh37 \
-    --max_cpus 8
+    --genome GRCh38 \
+    --aligner bwameth
 ```
 
 ### 3. Monitor Progress
 
 The pipeline will automatically:
 - Download required reference genomes
-- Pull necessary Docker containers
-- Process the test data through the complete methylation analysis workflow
+- Create conda environments for each process
+- Process the test data through the complete bwa-meth methylation analysis workflow
+- Align bisulfite-treated reads using bwa-meth
+- Extract methylation calls using MethylDackel
 - Generate comprehensive reports and results
 
 ## Environment Setup (Detailed)
@@ -77,12 +80,12 @@ conda install -c bioconda nextflow nf-core -y
 
 ```bash
 # Install all required bioinformatics tools
-conda install -c bioconda bismark trim-galore fastqc multiqc samtools bowtie2 bedtools picard qualimap -y
+conda install -c bioconda bwameth bwa methyldackel trim-galore fastqc multiqc samtools bedtools picard qualimap -y
 
 # Verify tool installations
-bismark --version
-trim_galore --version
-fastqc --version
+bwameth.py --version
+bwa
+MethylDackel --version
 ```
 
 ### Step 3: Download nf-core/methylseq Pipeline
@@ -152,9 +155,9 @@ params {
     max_time = '6.h'
 
     input = 'samplesheet.csv'
-    genome = 'GRCh37'
+    genome = 'GRCh38'
 
-    aligner = 'bismark'
+    aligner = 'bwameth'
     save_reference = true
 }
 ```
@@ -173,7 +176,7 @@ nextflow run nf-core/methylseq \
     --input your_samplesheet.csv \
     --outdir results \
     --genome GRCh38 \
-    --aligner bismark \
+    --aligner bwameth \
     --max_cpus 8
 ```
 
@@ -186,7 +189,7 @@ nextflow run nf-core/methylseq \
     --input samplesheet.csv \
     --outdir results \
     --genome GRCh38 \
-    --aligner bismark \
+    --aligner bwameth \
     --save_reference \
     --save_trimmed \
     --cytosine_report \
@@ -216,7 +219,7 @@ After successful completion, your results directory will contain:
 
 ```
 results/
-├── bismark/                    # Bismark alignment results
+├── bwameth/                    # bwa-meth alignment results
 ├── fastqc/                     # Quality control reports
 ├── methyldackel/               # Methylation extraction results
 ├── multiqc/                    # Comprehensive quality report
@@ -235,6 +238,24 @@ The pipeline supports many reference genomes through iGenomes:
 
 You can also provide custom reference genomes using `--fasta` parameter.
 
+## bwa-meth Workflow
+
+This setup uses **bwa-meth** as the primary methylation sequence aligner, which offers several advantages:
+
+### **bwa-meth Methodology**
+- **Fast alignment**: Uses BWA-MEM algorithm optimized for bisulfite-treated reads
+- **Accurate mapping**: Handles C→T and G→A conversions from bisulfite treatment
+- **Memory efficient**: Lower memory requirements compared to other aligners
+- **Comprehensive output**: Compatible with standard downstream analysis tools
+
+### **Analysis Pipeline**
+1. **Quality Control**: FastQC analyzes raw read quality
+2. **Read Trimming**: Trim Galore removes adapters and low-quality bases
+3. **Reference Preparation**: bwa-meth prepares bisulfite-converted reference genome
+4. **Alignment**: bwa-meth aligns reads to the converted reference
+5. **Methylation Extraction**: MethylDackel extracts methylation calls from alignments
+6. **Quality Assessment**: MultiQC aggregates all quality metrics and results
+
 ## Troubleshooting
 
 ### Common Issues
@@ -250,7 +271,7 @@ source ~/.zshrc  # or ~/.bashrc
 conda env remove -n methylseq-env
 conda create -n methylseq-env python=3.11 -y
 conda activate methylseq-env
-conda install -c bioconda nextflow nf-core bismark trim-galore fastqc multiqc samtools -y
+conda install -c bioconda nextflow nf-core bwameth bwa methyldackel trim-galore fastqc multiqc samtools -y
 ```
 
 #### 2. Memory Issues
@@ -283,13 +304,16 @@ conda install -c bioconda nextflow nf-core -y
 
 ```bash
 # If specific tools fail to install, try installing them individually
-conda install -c bioconda bismark -y
+conda install -c bioconda bwameth -y
+conda install -c bioconda bwa -y
+conda install -c bioconda methyldackel -y
 conda install -c bioconda trim-galore -y
 conda install -c bioconda fastqc -y
 
 # Check tool versions and compatibility
-bismark --version
-trim_galore --version
+bwameth.py --version
+bwa
+MethylDackel --version
 ```
 
 ### Getting Help
@@ -348,7 +372,8 @@ conda env remove -n methylseq-env
 - **Nextflow**: [https://www.nextflow.io](https://www.nextflow.io)
 - **Conda**: [https://docs.conda.io](https://docs.conda.io)
 - **Bioconda**: [https://bioconda.github.io](https://bioconda.github.io)
-- **Bismark**: [https://github.com/FelixKrueger/Bismark](https://github.com/FelixKrueger/Bismark)
+- **bwa-meth**: [https://github.com/brentp/bwa-meth](https://github.com/brentp/bwa-meth)
+- **MethylDackel**: [https://github.com/dpryan79/MethylDackel](https://github.com/dpryan79/MethylDackel)
 
 ## Citation
 

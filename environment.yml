@@ -9,15 +9,16 @@ dependencies:
   - nf-core
   
   # Core methylation analysis tools
-  - bismark=0.25.1
+  - bwameth=0.2.7
+  - bwa=0.7.18
   - trim-galore=0.6.10
   - fastqc=0.12.1
   - multiqc=1.30
-  - samtools=0.1.19
-  - bowtie2=2.5.4
+  - samtools=1.21
   - bedtools=2.31.1
   - picard=3.4.0
   - qualimap=2.3
+  - methyldackel=0.7.0
   
   # Additional alignment and processing tools
   - hisat2=2.2.1
