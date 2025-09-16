@@ -30,8 +30,7 @@ nf-core pipelines download methylseq --revision 4.1.0
 ### Step 3: Install additional tools
 ```bash
 pip install pyBigWig
-
-
+# Note - we use pip for now to avoid conda conflicts
 ```
 
 ### Step 4: Reference Genome Setup
