@@ -12,9 +12,6 @@ echo "Setting up environment for nf-core/methylseq pipeline..."
 export JAVA_HOME="/homes9/martin/java/jdk-24.0.2"
 export PATH="$JAVA_HOME/bin:$PATH"
 
-# Add Nextflow to PATH
-export PATH="$PWD:$PATH"
-
 # Activate conda environment
 source /homes9/martin/miniforge3/etc/profile.d/conda.sh
 conda activate methyl-microc
@@ -27,7 +24,7 @@ echo "Java version:"
 java -version
 
 echo -e "\nNextflow version:"
-./nextflow -version
+nextflow -version
 
 echo -e "\nnf-core version:"
 nf-core --version
@@ -92,7 +89,7 @@ echo "Input: $INPUT_FILE"
 echo "Output: results/"
 
 # Run the pipeline with all provided arguments and local genome files
-./nextflow run nf-core-methylseq_4.1.0/4_1_0 \
+nextflow run nf-core-methylseq_4.1.0/4_1_0 \
     -c methylseq.config \
     -resume \
     --fasta_index "$PWD/references/chr22/chr22.fa.fai" \

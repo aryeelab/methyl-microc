@@ -22,7 +22,9 @@ conda create -n methyl-microc -c conda-forge -c bioconda \
 
 ```bash
 conda activate methyl-microc
-./setup_pipeline.sh
+
+# Download nf-core/methylseq pipeline
+nf-core pipelines download methylseq --revision 4.1.0
 ```
 
 ### Step 3: Install additional tools
