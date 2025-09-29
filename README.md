@@ -72,7 +72,7 @@ The pipeline is designed to be run using the provided script:
 # Activate environment
 conda activate methyl-microc
 
-# Run the methylseq pipeline
+# Run the methylseq pipeline on a small test sample
 time ./run_methylseq.sh \
     -profile conda \
     --input tests/samplesheet.csv \
@@ -80,12 +80,14 @@ time ./run_methylseq.sh \
     --fasta $PWD/references/chr22/chr22.fa \
     --aligner bwameth
 
+# Run the methylseq pipeline on Arsh's HCT116 samples
 time ./run_methylseq.sh \
     -profile conda \
     --input samplesheet.csv \
     --outdir results_hct116 \
     --fasta $PWD/references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna \
     --aligner bwameth    
+
 
 # [ADD TO PIPELINE]
 # Convert methylation track bedgraphs to bigwig 
@@ -98,6 +100,76 @@ cat results_hct116/methyldackel/HCT116_Meth_MicroC_red_klnw.markdup.sorted_CpG.b
 time python bin/bedgraph_to_bigwig.py tmp.bedGraph results_hct116/methyldackel/HCT116_Meth_MicroC_red_klnw.markdup.sorted_CpG.bw references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.fai
 
 ```
+
+
+# [ADD TO PIPELINE]
+# Parse pairs
+```bash
+conda create -n pairtools -c conda-forge -c bioconda pairtools -y
+
+conda activate pairtools
+
+CHROM_SIZES="references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.fai"
+
+BAM="results_hct116/bwameth/deduplicated/HCT116_Meth_MicroC.markdup.sorted.bam"
+PAIRS="results_hct116/pairs/HCT116_Meth_MicroC.pairs.gz"
+STATS="results_hct116/pairs/HCT116_Meth_MicroC.stats.txt"
+
+#BAM="results_hct116/bwameth/deduplicated/HCT116_Meth_MicroC_red_klnw.markdup.sorted.bam"
+#PAIRS="results_hct116/pairs/HCT116_Meth_MicroC_red_klnw.pairs.gz"
+#STATS="results_hct116/pairs/HCT116_Meth_MicroC_red_klnw.stats.txt"
+
+mkdir -p results_hct116/pairs
+time pairtools parse --min-mapq 30 --walks-policy 5unique \
+        --max-inter-align-gap 30 --add-columns pos5,pos3 \
+        --drop-sam --nproc-in 8 --nproc-out 8 --chroms-path ${CHROM_SIZES} \
+        $BAM | \
+        pairtools sort --nproc 4  | \
+        pairtools dedup -o $PAIRS --output-stats $STATS
+  
+
+```
+
+
+# [ADD TO PIPELINE]
+# QC
+```bash
+conda create -n multiqc-pairtools pip
+conda activate multiqc-pairtools 
+pip install git+https://github.com/open2c/MultiQC.git
+
+
+conda activate multiqc-pairtools 
+multiqc -f -o results_hct116/multiqc results_hct116/pairs 
+
+
+cd stats
+
+
+```
+
+
+# [ADD TO PIPELINE]
+# Create Cooler and Juicebox hic
+
+```bash
+#PAIRS="results_hct116/pairs/HCT116_Meth_MicroC_red_klnw.pairs.gz"
+#HIC="results_hct116/hic/HCT116_Meth_MicroC_red_klnw.hic"
+
+PAIRS="results_hct116/pairs/HCT116_Meth_MicroC.pairs.gz"
+HIC="results_hct116/hic/HCT116_Meth_MicroC.hic"
+COOLER="results_hct116/hic/HCT116_Meth_MicroC.cool"
+
+conda create -n hictk -c conda-forge -c bioconda hictk
+conda activate hictk
+
+time hictk load --format 4dn --bin-size 100kbp $PAIRS $HIC
+time hictk load --format 4dn --bin-size 100kbp $PAIRS $COOLER
+
+
+```
+
+
 
 ### Input Format
 
