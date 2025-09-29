@@ -89,8 +89,8 @@ time ./run_methylseq.sh \
     --aligner bwameth    
 
 
-# [ADD TO PIPELINE]
 # Convert methylation track bedgraphs to bigwig 
+# [ADD TO PIPELINE]
 samtools faidx references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna
 
 cat results_hct116/methyldackel/HCT116_Meth_MicroC.markdup.sorted_CpG.bedGraph | grep -v KI | grep -v GL | grep -v random > tmp.bedGraph
@@ -102,9 +102,10 @@ time python bin/bedgraph_to_bigwig.py tmp.bedGraph results_hct116/methyldackel/H
 ```
 
 
-# [ADD TO PIPELINE]
+
 # Parse pairs
 ```bash
+# [ADD TO PIPELINE]
 conda create -n pairtools -c conda-forge -c bioconda pairtools -y
 
 conda activate pairtools
@@ -131,9 +132,10 @@ time pairtools parse --min-mapq 30 --walks-policy 5unique \
 ```
 
 
-# [ADD TO PIPELINE]
+
 # QC
 ```bash
+# [ADD TO PIPELINE]
 conda create -n multiqc-pairtools pip
 conda activate multiqc-pairtools 
 pip install git+https://github.com/open2c/MultiQC.git
@@ -149,10 +151,11 @@ cd stats
 ```
 
 
-# [ADD TO PIPELINE]
+
 # Create Cooler and Juicebox hic
 
 ```bash
+# [ADD TO PIPELINE]
 #PAIRS="results_hct116/pairs/HCT116_Meth_MicroC_red_klnw.pairs.gz"
 #HIC="results_hct116/hic/HCT116_Meth_MicroC_red_klnw.hic"
 
