@@ -15,7 +15,7 @@ Before setting up this environment, ensure you have:
 
 ```bash
 conda create -n methyl-microc -c conda-forge -c bioconda \
-  python=3.10 nextflow nf-core -y
+  python=3.10.19 nextflow=25.10.2 nf-core=3.5.1 -y
 ```
 
 ### Step 2: Activate Environment and Download Pipeline
@@ -27,10 +27,34 @@ conda activate methyl-microc
 nf-core pipelines download methylseq --revision 4.1.0
 ```
 
-### Step 3: Install additional tools
+### Step 3: Optional: Install tools for manual steps
 ```bash
-pip install pyBigWig
-# Note - we use pip for now to avoid conda conflicts
+# This is separate from the per-process conda envs created by Nextflow when you run with `-profile conda`.
+
+conda install -c conda-forge -c bioconda \
+  bwa=0.7.19 \
+  bwameth=0.2.9 \
+  samtools=1.23 \
+  bedtools=2.31.1 \
+  picard=3.4.0 \
+  qualimap=2.3 \
+  methyldackel=0.7.0 \
+  hisat2=2.2.1 \
+  minimap2=2.30 \
+  trim-galore=0.6.10 \
+  fastqc=0.12.1 \
+  cutadapt=5.1 \
+  pigz=2.8 \
+  pbzip2=1.1.13 \
+  multiqc=1.30 \
+  pairtools=1.1.3 \
+  pairix=0.3.9 \
+  pysam=0.23.0 \
+  hictk=2.2.0 \
+  -y
+
+# Python dependency for bigWig conversion scripts
+python -m pip install pyBigWig==0.3.25
 ```
 
 ### Step 4: Reference Genome Setup
@@ -106,27 +130,80 @@ time python bin/bedgraph_to_bigwig.py tmp.bedGraph results_hct116/methyldackel/H
 # Parse pairs
 ```bash
 # [ADD TO PIPELINE]
-conda create -n pairtools -c conda-forge -c bioconda pairtools -y
 
-conda activate pairtools
+# NOTE (macOS Apple Silicon / osx-arm64): `pairtools parse --add-columns ... seq` can crash
+# with a Bus error for some newer pysam builds. A known-good pin is `pysam=0.23.0`.
 
-CHROM_SIZES="references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.fai"
+CHROM_SIZES="references/chr22/chr22.fa.fai"
+BAM="results/bwameth/deduplicated/test_sample.markdup.sorted.bam"
+PAIRSAM="results/pairs/test_sample.pairsam.gz"
+STATS="results/pairs/test_sample.stats.txt" 
+mkdir -p results/pairs
 
-BAM="results_hct116/bwameth/deduplicated/HCT116_Meth_MicroC.markdup.sorted.bam"
-PAIRS="results_hct116/pairs/HCT116_Meth_MicroC.pairs.gz"
-STATS="results_hct116/pairs/HCT116_Meth_MicroC.stats.txt"
+#CHROM_SIZES="references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.fai"
+#BAM="results_hct116/bwameth/deduplicated/HCT116_Meth_MicroC.markdup.sorted.bam"
+#PAIRSAM="results_hct116/pairs/HCT116_Meth_MicroC.pairsam.gz"
+#STATS="results_hct116/pairs/HCT116_Meth_MicroC.stats.txt"
 
 #BAM="results_hct116/bwameth/deduplicated/HCT116_Meth_MicroC_red_klnw.markdup.sorted.bam"
-#PAIRS="results_hct116/pairs/HCT116_Meth_MicroC_red_klnw.pairs.gz"
+#PAIRSAM="results_hct116/pairs/HCT116_Meth_MicroC_red_klnw.pairsam.gz"
 #STATS="results_hct116/pairs/HCT116_Meth_MicroC_red_klnw.stats.txt"
 
-mkdir -p results_hct116/pairs
+#mkdir -p results_hct116/pairs
+
 time pairtools parse --min-mapq 30 --walks-policy 5unique \
-        --max-inter-align-gap 30 --add-columns pos5,pos3 \
-        --drop-sam --nproc-in 8 --nproc-out 8 --chroms-path ${CHROM_SIZES} \
+        --max-inter-align-gap 30 --drop-sam --add-columns pos5,pos3,cigar,seq \
+        --nproc-in 8 --nproc-out 8 --chroms-path ${CHROM_SIZES} \
         $BAM | \
         pairtools sort --nproc 4  | \
-        pairtools dedup -o $PAIRS --output-stats $STATS
+        pairtools dedup -o $PAIRSAM --output-stats $STATS
+
+# Append per-fragment methylation strings (meth1/meth2) using the reference FASTA
+# (requires the FASTA to be indexed: samtools faidx reference.fa)
+# NOTE: the annotator requires `cigar{1,2}` and `seq{1,2}` columns.
+#
+python bin/annotate_pairsam_methylation.py \
+    --fasta references/chr22/chr22.fa \
+    --input  $PAIRSAM \
+    --output results/pairs/test_sample.meth.pairsam.gz
+
+# Validate methylation annotation on the first pair
+#
+# This sanity check demonstrates that meth1/meth2 are correctly generated.
+# It:
+#   1) extracts the first (non-header) pair from results/pairs/test_sample.meth.pairsam.gz
+#   2) fetches the reference sequence spanning pos5..pos3 (inclusive) from the FASTA
+#   3) checks that len(meth) == abs(pos3-pos5)+1 and that CpG sites in the reference align
+#      to CpG calls in the methylation string.
+#
+# Methylation encoding (per base of the fragment span):
+#   '1' = methylated CpG
+#   '0' = unmethylated CpG
+#   '-' = not a CpG position in the reference
+#   '.' = unclear / no-call
+#
+# Coordinate convention:
+#   pairtools reports pos5 and pos3 for each side. The analyzed fragment span is the inclusive
+#   region between these endpoints; its length is abs(pos3-pos5)+1.
+
+PAIRS_METH="results/pairs/test_sample.meth.pairsam.gz"
+FASTA="references/chr22/chr22.fa"
+
+# (requires samtools and the FASTA to be indexed; the script will create ${FASTA}.fai if missing)
+python bin/validate_pairsam_methylation.py \
+  --pairs "${PAIRS_METH}" \
+  --fasta "${FASTA}"
+
+# Or validate a specific record by readID:
+# python bin/validate_pairsam_methylation.py --pairs "${PAIRS_METH}" --fasta "${FASTA}" --readID "<READ_ID>"
+
+# gunzip to terminal
+gzcat results/pairs/test_sample.meth.pairsam.gz | head -n 10
+
+#python bin/annotate_pairsam_methylation.py \
+#   --fasta references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna \
+#   --input  $PAIRSAM \
+#   --output results_hct116/pairs/HCT116_Meth_MicroC.meth.pairsam.gz
   
 
 ```
@@ -136,12 +213,15 @@ time pairtools parse --min-mapq 30 --walks-policy 5unique \
 # QC
 ```bash
 # [ADD TO PIPELINE]
-conda create -n multiqc-pairtools pip
-conda activate multiqc-pairtools 
-pip install git+https://github.com/open2c/MultiQC.git
+conda activate methyl-microc
 
+# (Already included in Quick Setup Step 3, but repeated here for convenience)
+conda install -c conda-forge -c bioconda multiqc=1.30 -y
 
-conda activate multiqc-pairtools 
+# If you specifically need the open2c fork of MultiQC (e.g. for extra pairtools-related modules),
+# install it via pip instead and skip the conda MultiQC install above:
+# python -m pip install git+https://github.com/open2c/MultiQC.git
+
 multiqc -f -o results_hct116/multiqc results_hct116/pairs 
 
 
@@ -163,8 +243,10 @@ PAIRS="results_hct116/pairs/HCT116_Meth_MicroC.pairs.gz"
 HIC="results_hct116/hic/HCT116_Meth_MicroC.hic"
 COOLER="results_hct116/hic/HCT116_Meth_MicroC.cool"
 
-conda create -n hictk -c conda-forge -c bioconda hictk
-conda activate hictk
+conda activate methyl-microc
+
+# (Already included in Quick Setup Step 3, but repeated here for convenience)
+conda install -c conda-forge -c bioconda hictk=2.2.0 -y
 
 time hictk load --format 4dn --bin-size 100kbp $PAIRS $HIC
 time hictk load --format 4dn --bin-size 100kbp $PAIRS $COOLER

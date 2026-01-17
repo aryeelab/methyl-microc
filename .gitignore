@@ -1,4 +1,6 @@
 .DS_Store
+__pycache__/
+*.py[cod]
 results/
 work/
 .nextflow.log
@@ -8,3 +10,9 @@ nf-core*
 references/*
 results*
 data/*
+
+# Local scratch/output that shouldn't be versioned
+null/
+
+# Local helper genome created during smoke testing
+test_genome.fa
