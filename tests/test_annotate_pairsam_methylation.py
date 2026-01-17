@@ -72,7 +72,26 @@ class TestAnnotatePairsamMethylation(unittest.TestCase):
                     5,
                     2,
                     "4M",
-                    "TGCG",  # reverse-complemented by the code to align as CGCA
+                    "CGCA",  # pairtools-style: already oriented left->right on reference
+                )
+                self.assertEqual(s, "0-1-")
+
+    def test_methyl_string_minus_fragment_softclip_requires_cigar_reverse(self):
+        # Same as test_methyl_string_minus_fragment, but the read has a leading
+        # soft-clip. In pairtools-style pairsam, the seq/cigar are already
+        # oriented left->right on the reference, so the soft-clip for a '-'
+        # alignment appears on the opposite end compared to the original read.
+        with tempfile.TemporaryDirectory() as d:
+            fasta, fai = _write_unwrapped_fasta_with_fai(d, "chr1", "ACGCGT")
+            with M.FastaFai(fasta, fai) as ff:
+                s = M.methyl_string_for_side(
+                    ff,
+                    "chr1",
+                    "-",
+                    5,
+                    2,
+                    "4M1S",
+                    "CGCAT",  # pairtools-style: seq and cigar already reversed for '-'
                 )
                 self.assertEqual(s, "0-1-")
 

@@ -46,6 +46,22 @@ def parse_cigar(cigar: str):
     return [(int(n), op) for n, op in parts]
 
 
+def reverse_cigar(cigar: str) -> str:
+    """Reverse CIGAR operations for use with a reverse-complemented query.
+
+    Many aligners keep SEQ in the original read orientation even for reverse-
+    strand alignments, while CIGAR is still reported in reference left->right
+    order. If we reverse-complement the sequence to orient it left->right, we
+    must also reverse the order of CIGAR operations so that leading/trailing
+    clips/indels apply to the correct end of the query.
+    """
+
+    ops = parse_cigar(cigar)
+    if not ops:
+        return cigar
+    return "".join(f"{n}{op}" for n, op in reversed(ops))
+
+
 def build_ref_base_map(ref_start_1based: int, cigar: str, seq_aln: str) -> dict[int, str]:
     """Return map: reference_pos(1-based) -> aligned base (uppercase).
 
@@ -205,9 +221,14 @@ def methyl_string_for_side(
     frag_len = abs(pos3 - pos5) + 1
 
     left = min(pos5, pos3)
-    # CIGAR is in reference left->right orientation.
-    seq_aln = seq if strand == "+" else revcomp(seq)
-    ref_base_map = build_ref_base_map(left, cigar, seq_aln)
+    # pairtools `parse --add-columns ... cigar,seq` reports `seq{1,2}` already
+    # oriented in reference left->right order (for '-' alignments this is the
+    # reverse-complement of the original read sequence). The corresponding
+    # `cigar{1,2}` is reported in the same orientation.
+    #
+    # Therefore we can project `seq` onto the reference span using `cigar`
+    # directly, independent of strand.
+    ref_base_map = build_ref_base_map(left, cigar, seq)
 
     out = []
     for i in range(frag_len):
