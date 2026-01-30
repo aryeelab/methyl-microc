@@ -112,50 +112,39 @@ time ./run_methylseq.sh \
     --aligner bwameth    
 
 
-# Convert methylation track bedgraphs to bigwig 
+Note that there are several steps below that are not (yet) part of the pipeline and will need to be added. For now they are done manually.
+
 # [ADD TO PIPELINE]
+# Convert methylation track bedgraphs to bigwig 
 samtools faidx references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna
 
 cat results/20250612_hct116/methyldackel/HCT116_Meth_MicroC.markdup.sorted_CpG.bedGraph | grep -v KI | grep -v GL | grep -v random > tmp.bedGraph
 time python bin/bedgraph_to_bigwig.py tmp.bedGraph results/20250612_hct116/methyldackel/HCT116_Meth_MicroC.markdup.sorted_CpG.bw references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.fai
 
-cat results/20250612_hct116/methyldackel/HCT116_Meth_MicroC_red_klnw.markdup.sorted_CpG.bedGraph | grep -v KI | grep -v GL | grep -v random > tmp.bedGraph
-time python bin/bedgraph_to_bigwig.py tmp.bedGraph results/20250612_hct116/methyldackel/HCT116_Meth_MicroC_red_klnw.markdup.sorted_CpG.bw references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.fai
-
 ```
 
 
-
-# Parse pairs
+# Parse pairs from the bam. (i.e. infer fragments and ligation junctions from the reads)
 ```bash
-
-
+# [ADD TO PIPELINE]
 conda create -n pairtools -c conda-forge -c bioconda \
   python=3.10.19 \
   pairtools=1.1.3 \
   pysam=0.23.3 \
   -y
-
-# [ADD TO PIPELINE]
-
-# NOTE (macOS Apple Silicon / osx-arm64): `pairtools parse --add-columns ... seq` can crash
-# with a Bus error for some newer pysam builds. A known-good pin is `pysam=0.23.0`.
+# NOTE: On Mac OS (arm64) `pairtools parse --add-columns ... seq` crashes
+# with a bus error for some newer pysam builds. A known-good pin is `pysam=0.23.0`.
 
 CHROM_SIZES="references/chr22/chr22.fa.fai"
 BAM="results/bwameth/deduplicated/test_sample.markdup.sorted.bam"
-PAIRSAM="results/pairs/test_sample.pairsam.gz"
+PAIRS="results/pairs/test_sample.pairs.gz"
 STATS="results/pairs/test_sample.stats.txt" 
 mkdir -p results/pairs
 
 CHROM_SIZES="references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.fai"
 BAM="results/20250612_hct116/bwameth/deduplicated/HCT116_Meth_MicroC.markdup.sorted.bam"
-PAIRSAM="results/20250612_hct116/pairs/HCT116_Meth_MicroC.pairsam.gz"
+PAIRS="results/20250612_hct116/pairs/HCT116_Meth_MicroC.pairs.gz"
 STATS="results/20250612_hct116/pairs/HCT116_Meth_MicroC.stats.txt"
-
-#BAM="results/20250612_hct116/bwameth/deduplicated/HCT116_Meth_MicroC_red_klnw.markdup.sorted.bam"
-#PAIRSAM="results/20250612_hct116/pairs/HCT116_Meth_MicroC_red_klnw.pairsam.gz"
-#STATS="results/20250612_hct116/pairs/HCT116_Meth_MicroC_red_klnw.stats.txt"
-
 mkdir -p results/20250612_hct116/pairs
 
 conda activate pairtools
@@ -164,28 +153,39 @@ time pairtools parse --min-mapq 30 --walks-policy 5unique \
         --nproc-in 8 --nproc-out 8 --chroms-path ${CHROM_SIZES} \
         $BAM | \
         pairtools sort --nproc 4  | \
-        pairtools dedup -o $PAIRSAM --output-stats $STATS
+        pairtools dedup -o $PAIRS --output-stats $STATS
+```
 
+# Annotate pairs with methylation information
+```bash
 # Append per-fragment methylation strings (meth1/meth2) using the reference FASTA
 # (requires the FASTA to be indexed: samtools faidx reference.fa)
-# NOTE: the annotator requires `cigar{1,2}` and `seq{1,2}` columns.
+# NOTE: the annotator requires the `cigar{1,2}` and `seq{1,2}` columns added by pairtools parse.
 #
-time python bin/annotate_pairsam_methylation.py \
-    --fasta references/chr22/chr22.fa \
-    --input  $PAIRSAM \
-    --output results/pairs/test_sample.meth.pairsam.gz
+# Test sample
+# time python bin/annotate_pairs_methylation.py \
+#     --fasta references/chr22/chr22.fa \
+#     --input  $PAIRS \
+#     --output results/pairs/test_sample.meth.pairs.gz
 
-time python bin/annotate_pairsam_methylation.py \
-    --fasta references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna \
-    --input  $PAIRSAM \
-    --output results/20250612_hct116/pairs/HCT116_Meth_MicroC.meth.pairsam.gz
+
+METH_PAIRS="results/pairs/test_sample.meth.pairs.gz"
+REF="references/chr22/chr22.fa"
+
+METH_PAIRS="results/20250612_hct116/pairs/HCT116_Meth_MicroC.meth.pairs.gz"
+REF="references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna"
+
+time python bin/annotate_pairs_methylation.py \
+    --fasta "${REF}" \
+    --input  $PAIRS \
+    --output "${METH_PAIRS}"
 
 
 # Validate methylation annotation on the first pair
 #
 # This sanity check demonstrates that meth1/meth2 are correctly generated.
 # It:
-#   1) extracts the first (non-header) pair from results/pairs/test_sample.meth.pairsam.gz
+#   1) extracts the first (non-header) pair from results/pairs/test_sample.meth.pairs.gz
 #   2) fetches the reference sequence spanning pos5..pos3 (inclusive) from the FASTA
 #   3) checks that len(meth) == abs(pos3-pos5)+1 and that CpG sites in the reference align
 #      to CpG calls in the methylation string.
@@ -200,24 +200,21 @@ time python bin/annotate_pairsam_methylation.py \
 #   pairtools reports pos5 and pos3 for each side. The analyzed fragment span is the inclusive
 #   region between these endpoints; its length is abs(pos3-pos5)+1.
 
-PAIRS_METH="results/pairs/test_sample.meth.pairsam.gz"
+PAIRS_METH="results/pairs/test_sample.meth.pairs.gz"
 FASTA="references/chr22/chr22.fa"
-
-python bin/validate_pairsam_methylation.py --pairs "${PAIRS_METH}" --fasta "${FASTA}" --record 1
+python bin/validate_pairs_methylation.py --pairs "${PAIRS_METH}" --fasta "${FASTA}" --record 1
 
 # Or validate a specific record by readID:
 READ_ID="LH00547:129:233G5FLT3:8:1101:30945:1689"
-python bin/validate_pairsam_methylation.py --pairs "${PAIRS_METH}" --fasta "${FASTA}" --readID "${READ_ID}"
+python bin/validate_pairs_methylation.py --pairs "${PAIRS_METH}" --fasta "${FASTA}" --readID "${READ_ID}"
 
-gunzip -c results/pairs/test_sample.meth.pairsam.gz | head -n 10
+gunzip -c results/pairs/test_sample.meth.pairs.gz | head -n 10
 
 # HCT116
-#python bin/annotate_pairsam_methylation.py \
+#python bin/annotate_pairs_methylation.py \
 #   --fasta references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna \
-#   --input  $PAIRSAM \
-#   --output results/20250612_hct116/pairs/HCT116_Meth_MicroC.meth.pairsam.gz
-  
-
+#   --input  $pairs \
+#   --output results/20250612_hct116/pairs/HCT116_Meth_MicroC.meth.pairs.gz
 ```
 
 

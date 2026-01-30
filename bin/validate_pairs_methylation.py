@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sanity-check meth1/meth2 strings against reference CpG sites for one .pairsam record.
+"""Sanity-check meth1/meth2 strings against reference CpG sites for one .pairs record.
 
 This script is intended for quick validation during tutorial/README usage.
 It extracts either the Nth non-header record (default: first) or the first
@@ -10,7 +10,7 @@ strand-aware, and checks:
   2) CpG cytosines in the oriented reference align to meth calls
 
 Requires:
-  - pairsam columns: chrom{1,2},pos5{1,2},pos3{1,2},strand{1,2},cigar{1,2},seq{1,2},meth{1,2}
+  - pairs columns: chrom{1,2},pos5{1,2},pos3{1,2},strand{1,2},cigar{1,2},seq{1,2},meth{1,2}
   - samtools in PATH (used for faidx access; will create FASTA .fai if missing)
 """
 
@@ -98,8 +98,8 @@ def reverse_cigar(cigar: str) -> str:
 def orient_for_display(ref_lr: str, seq: str, cigar: str, strand: str) -> tuple[str, str]:
     """Return (ref_disp, seq_disp) strings for printing/validation.
 
-    This repository's pipeline typically generates pairsam via:
-      pairtools parse --add-columns pos5,pos3,cigar,seq
+    This repository's pipeline typically generates pairs via:
+      pairtools parse --drop-sam --add-columns pos5,pos3,cigar,seq
 
     In that output, `seq` and `cigar` are already oriented in reference
     left->right order (i.e. suitable for projection onto `ref_lr`).
@@ -206,7 +206,7 @@ def _select_data_record(
 
 def main(argv: Iterable[str]) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--pairs", default="results/pairs/test_sample.meth.pairsam.gz", help="Input .pairsam(.gz) with meth1/meth2")
+    ap.add_argument("--pairs", default="results/pairs/test_sample.meth.pairs.gz", help="Input .pairs(.gz) with meth1/meth2")
     ap.add_argument("--fasta", default="references/chr22/chr22.fa", help="Reference FASTA (faidx-indexed)")
     sel = ap.add_mutually_exclusive_group()
     sel.add_argument("--record", type=int, default=1, help="1-based index of the non-header record to validate")
@@ -259,8 +259,8 @@ def main(argv: Iterable[str]) -> int:
         ref_lr = fetch_fasta(args.samtools, args.fasta, chrom, start, endp)
 
         # Display the fragment 5'->3' (for '-' strands, reverse-complement of
-        # the reference span). Note: pairsam `seq`/`cigar` are assumed to already
-        # be reference-oriented (pairtools parse output).
+        # the reference span). Note: pairtools parse `seq`/`cigar` are assumed to
+        # already be reference-oriented.
         ref_disp, seq_disp = orient_for_display(ref_lr, seq, cigar, strand)
 
         ok = True

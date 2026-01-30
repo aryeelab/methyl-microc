@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Annotate a .pairsam file with per-fragment CpG methylation strings.
+"""Annotate a .pairs file with per-fragment CpG methylation strings.
 
 The methylation string is defined over the *fragment* for each side, i.e. the
 reference interval from pos5->pos3 (5' to 3', strand-aware), NOT over the full
@@ -15,7 +15,7 @@ Alphabet:
   - '0' : CpG, unmethylated (T on + strand or A on - strand)
   - '.' : CpG, but no clear call (deletion, N, other base, missing data)
 
-Requires pairsam to contain: pos51,pos31,pos52,pos32,strand1,strand2,cigar1,
+Requires pairs to contain: pos51,pos31,pos52,pos32,strand1,strand2,cigar1,
 cigar2,seq1,seq2.
 """
 
@@ -268,7 +268,7 @@ def _open_text_maybe_gz(path: str | None, mode: str):
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
-        description="Append meth1/meth2 methylation strings to a pairsam file (streaming)."
+        description="Append meth1/meth2 methylation strings to a pairs file (streaming)."
     )
     ap.add_argument("--fasta", required=True, help="Reference FASTA (unconverted), must be indexed")
     ap.add_argument(
@@ -276,8 +276,8 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="FASTA index (.fai). Default: --fasta + .fai",
     )
-    ap.add_argument("--input", default="-", help="Input .pairsam(.gz); default stdin")
-    ap.add_argument("--output", default="-", help="Output .pairsam(.gz); default stdout")
+    ap.add_argument("--input", default="-", help="Input .pairs(.gz); default stdin")
+    ap.add_argument("--output", default="-", help="Output .pairs(.gz); default stdout")
     args = ap.parse_args(argv)
 
     fai = args.fai or (args.fasta + ".fai")
@@ -307,7 +307,7 @@ def main(argv: list[str] | None = None) -> int:
                 break
 
         if columns is None:
-            raise RuntimeError("Missing #columns: header; not a valid .pairs/.pairsam file")
+            raise RuntimeError("Missing #columns: header; not a valid .pairs file")
 
         out.writelines(header_lines)
 
@@ -329,7 +329,7 @@ def main(argv: list[str] | None = None) -> int:
         missing = [c for c in required if c not in idx]
         if missing:
             raise RuntimeError(
-                "Input pairsam is missing required columns: "
+                "Input pairs is missing required columns: "
                 + ",".join(missing)
                 + "\nHint: generate with pairtools parse --add-columns pos5,pos3,cigar,seq (optionally add --drop-sam to remove sam1/sam2)"
             )
@@ -373,7 +373,7 @@ def main(argv: list[str] | None = None) -> int:
             out.write(handle_data_line(first_data))
         for line in inp:
             if not line.strip() or line.startswith("#"):
-                # pairsam bodies should not contain '#', but be tolerant.
+                # pairs bodies should not contain '#', but be tolerant.
                 continue
             out.write(handle_data_line(line))
     return 0

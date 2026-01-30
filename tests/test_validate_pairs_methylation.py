@@ -5,8 +5,8 @@ import unittest
 
 def _load_module():
     repo_root = pathlib.Path(__file__).resolve().parents[1]
-    mod_path = repo_root / "bin" / "validate_pairsam_methylation.py"
-    spec = importlib.util.spec_from_file_location("validate_pairsam_methylation", mod_path)
+    mod_path = repo_root / "bin" / "validate_pairs_methylation.py"
+    spec = importlib.util.spec_from_file_location("validate_pairs_methylation", mod_path)
     mod = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(mod)
@@ -16,7 +16,7 @@ def _load_module():
 V = _load_module()
 
 
-class TestValidatePairsamMethylation(unittest.TestCase):
+class TestValidatePairsMethylation(unittest.TestCase):
     def test_orient_for_display_minus_matches_revcomp_reference(self):
         # If seq/cigar are already reference-oriented (pairtools-style), then for
         # '-' strand display we must flip at the *end* so seq(aln) matches the
