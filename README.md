@@ -130,17 +130,19 @@ time python bin/bedgraph_to_bigwig.py tmp.bedGraph results/20250612_hct116/methy
 conda create -n pairtools -c conda-forge -c bioconda \
   python=3.10.19 \
   pairtools=1.1.3 \
-  pysam=0.23.3 \
+  pysam=0.23.0 \
   -y
 # NOTE: On Mac OS (arm64) `pairtools parse --add-columns ... seq` crashes
 # with a bus error for some newer pysam builds. A known-good pin is `pysam=0.23.0`.
 
+# Test sample
 CHROM_SIZES="references/chr22/chr22.fa.fai"
 BAM="results/bwameth/deduplicated/test_sample.markdup.sorted.bam"
 PAIRS="results/pairs/test_sample.pairs.gz"
 STATS="results/pairs/test_sample.stats.txt" 
 mkdir -p results/pairs
 
+# HCT116
 CHROM_SIZES="references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.fai"
 BAM="results/20250612_hct116/bwameth/deduplicated/HCT116_Meth_MicroC.markdup.sorted.bam"
 PAIRS="results/20250612_hct116/pairs/HCT116_Meth_MicroC.pairs.gz"
@@ -169,9 +171,11 @@ time pairtools parse --min-mapq 30 --walks-policy 5unique \
 #     --output results/pairs/test_sample.meth.pairs.gz
 
 
+# Test sample
 METH_PAIRS="results/pairs/test_sample.meth.pairs.gz"
 REF="references/chr22/chr22.fa"
 
+# HCT116
 METH_PAIRS="results/20250612_hct116/pairs/HCT116_Meth_MicroC.meth.pairs.gz"
 REF="references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna"
 
@@ -202,10 +206,10 @@ time python bin/annotate_pairs_methylation.py \
 
 PAIRS_METH="results/pairs/test_sample.meth.pairs.gz"
 FASTA="references/chr22/chr22.fa"
-python bin/validate_pairs_methylation.py --pairs "${PAIRS_METH}" --fasta "${FASTA}" --record 1
+python bin/validate_pairs_methylation.py --pairs "${PAIRS_METH}" --fasta "${FASTA}" --record 3
 
 # Or validate a specific record by readID:
-READ_ID="LH00547:129:233G5FLT3:8:1101:30945:1689"
+READ_ID="LH00547:129:233G5FLT3:8:1101:31194:1673"
 python bin/validate_pairs_methylation.py --pairs "${PAIRS_METH}" --fasta "${FASTA}" --readID "${READ_ID}"
 
 gunzip -c results/pairs/test_sample.meth.pairs.gz | head -n 10
