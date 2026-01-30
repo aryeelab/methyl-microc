@@ -38,7 +38,7 @@ conda install -c conda-forge -c bioconda \
   bedtools=2.31.1 \
   picard=3.4.0 \
   qualimap=2.3 \
-  methyldackel=0.7.0 \
+  methyldackel=0.6.1 \
   hisat2=2.2.1 \
   minimap2=2.30 \
   trim-galore=0.6.10 \
@@ -50,7 +50,6 @@ conda install -c conda-forge -c bioconda \
   pairtools=1.1.3 \
   pairix=0.3.9 \
   pysam=0.23.0 \
-  hictk=2.2.0 \
   -y
 
 # Python dependency for bigWig conversion scripts
@@ -107,8 +106,8 @@ time ./run_methylseq.sh \
 # Run the methylseq pipeline on Arsh's HCT116 samples
 time ./run_methylseq.sh \
     -profile conda \
-    --input samplesheet.csv \
-    --outdir results_hct116 \
+    --input data/20250612_hct116/samplesheet_20250612_hct116.csv \
+    --outdir results/20250612_hct116 \
     --fasta $PWD/references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna \
     --aligner bwameth    
 
@@ -117,11 +116,11 @@ time ./run_methylseq.sh \
 # [ADD TO PIPELINE]
 samtools faidx references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna
 
-cat results_hct116/methyldackel/HCT116_Meth_MicroC.markdup.sorted_CpG.bedGraph | grep -v KI | grep -v GL | grep -v random > tmp.bedGraph
-time python bin/bedgraph_to_bigwig.py tmp.bedGraph results_hct116/methyldackel/HCT116_Meth_MicroC.markdup.sorted_CpG.bw references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.fai
+cat results/20250612_hct116/methyldackel/HCT116_Meth_MicroC.markdup.sorted_CpG.bedGraph | grep -v KI | grep -v GL | grep -v random > tmp.bedGraph
+time python bin/bedgraph_to_bigwig.py tmp.bedGraph results/20250612_hct116/methyldackel/HCT116_Meth_MicroC.markdup.sorted_CpG.bw references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.fai
 
-cat results_hct116/methyldackel/HCT116_Meth_MicroC_red_klnw.markdup.sorted_CpG.bedGraph | grep -v KI | grep -v GL | grep -v random > tmp.bedGraph
-time python bin/bedgraph_to_bigwig.py tmp.bedGraph results_hct116/methyldackel/HCT116_Meth_MicroC_red_klnw.markdup.sorted_CpG.bw references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.fai
+cat results/20250612_hct116/methyldackel/HCT116_Meth_MicroC_red_klnw.markdup.sorted_CpG.bedGraph | grep -v KI | grep -v GL | grep -v random > tmp.bedGraph
+time python bin/bedgraph_to_bigwig.py tmp.bedGraph results/20250612_hct116/methyldackel/HCT116_Meth_MicroC_red_klnw.markdup.sorted_CpG.bw references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.fai
 
 ```
 
@@ -129,6 +128,14 @@ time python bin/bedgraph_to_bigwig.py tmp.bedGraph results_hct116/methyldackel/H
 
 # Parse pairs
 ```bash
+
+
+conda create -n pairtools -c conda-forge -c bioconda \
+  python=3.10.19 \
+  pairtools=1.1.3 \
+  pysam=0.23.3 \
+  -y
+
 # [ADD TO PIPELINE]
 
 # NOTE (macOS Apple Silicon / osx-arm64): `pairtools parse --add-columns ... seq` can crash
@@ -140,17 +147,18 @@ PAIRSAM="results/pairs/test_sample.pairsam.gz"
 STATS="results/pairs/test_sample.stats.txt" 
 mkdir -p results/pairs
 
-#CHROM_SIZES="references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.fai"
-#BAM="results_hct116/bwameth/deduplicated/HCT116_Meth_MicroC.markdup.sorted.bam"
-#PAIRSAM="results_hct116/pairs/HCT116_Meth_MicroC.pairsam.gz"
-#STATS="results_hct116/pairs/HCT116_Meth_MicroC.stats.txt"
+CHROM_SIZES="references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.fai"
+BAM="results/20250612_hct116/bwameth/deduplicated/HCT116_Meth_MicroC.markdup.sorted.bam"
+PAIRSAM="results/20250612_hct116/pairs/HCT116_Meth_MicroC.pairsam.gz"
+STATS="results/20250612_hct116/pairs/HCT116_Meth_MicroC.stats.txt"
 
-#BAM="results_hct116/bwameth/deduplicated/HCT116_Meth_MicroC_red_klnw.markdup.sorted.bam"
-#PAIRSAM="results_hct116/pairs/HCT116_Meth_MicroC_red_klnw.pairsam.gz"
-#STATS="results_hct116/pairs/HCT116_Meth_MicroC_red_klnw.stats.txt"
+#BAM="results/20250612_hct116/bwameth/deduplicated/HCT116_Meth_MicroC_red_klnw.markdup.sorted.bam"
+#PAIRSAM="results/20250612_hct116/pairs/HCT116_Meth_MicroC_red_klnw.pairsam.gz"
+#STATS="results/20250612_hct116/pairs/HCT116_Meth_MicroC_red_klnw.stats.txt"
 
-#mkdir -p results_hct116/pairs
+mkdir -p results/20250612_hct116/pairs
 
+conda activate pairtools
 time pairtools parse --min-mapq 30 --walks-policy 5unique \
         --max-inter-align-gap 30 --drop-sam --add-columns pos5,pos3,cigar,seq \
         --nproc-in 8 --nproc-out 8 --chroms-path ${CHROM_SIZES} \
@@ -162,10 +170,16 @@ time pairtools parse --min-mapq 30 --walks-policy 5unique \
 # (requires the FASTA to be indexed: samtools faidx reference.fa)
 # NOTE: the annotator requires `cigar{1,2}` and `seq{1,2}` columns.
 #
-python bin/annotate_pairsam_methylation.py \
+time python bin/annotate_pairsam_methylation.py \
     --fasta references/chr22/chr22.fa \
     --input  $PAIRSAM \
     --output results/pairs/test_sample.meth.pairsam.gz
+
+time python bin/annotate_pairsam_methylation.py \
+    --fasta references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna \
+    --input  $PAIRSAM \
+    --output results/20250612_hct116/pairs/HCT116_Meth_MicroC.meth.pairsam.gz
+
 
 # Validate methylation annotation on the first pair
 #
@@ -189,21 +203,19 @@ python bin/annotate_pairsam_methylation.py \
 PAIRS_METH="results/pairs/test_sample.meth.pairsam.gz"
 FASTA="references/chr22/chr22.fa"
 
-# (requires samtools and the FASTA to be indexed; the script will create ${FASTA}.fai if missing)
-python bin/validate_pairsam_methylation.py \
-  --pairs "${PAIRS_METH}" \
-  --fasta "${FASTA}"
+python bin/validate_pairsam_methylation.py --pairs "${PAIRS_METH}" --fasta "${FASTA}" --record 1
 
 # Or validate a specific record by readID:
-# python bin/validate_pairsam_methylation.py --pairs "${PAIRS_METH}" --fasta "${FASTA}" --readID "<READ_ID>"
+READ_ID="LH00547:129:233G5FLT3:8:1101:30945:1689"
+python bin/validate_pairsam_methylation.py --pairs "${PAIRS_METH}" --fasta "${FASTA}" --readID "${READ_ID}"
 
-# gunzip to terminal
-gzcat results/pairs/test_sample.meth.pairsam.gz | head -n 10
+gunzip -c results/pairs/test_sample.meth.pairsam.gz | head -n 10
 
+# HCT116
 #python bin/annotate_pairsam_methylation.py \
 #   --fasta references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna \
 #   --input  $PAIRSAM \
-#   --output results_hct116/pairs/HCT116_Meth_MicroC.meth.pairsam.gz
+#   --output results/20250612_hct116/pairs/HCT116_Meth_MicroC.meth.pairsam.gz
   
 
 ```
@@ -222,7 +234,7 @@ conda install -c conda-forge -c bioconda multiqc=1.30 -y
 # install it via pip instead and skip the conda MultiQC install above:
 # python -m pip install git+https://github.com/open2c/MultiQC.git
 
-multiqc -f -o results_hct116/multiqc results_hct116/pairs 
+multiqc -f -o results/20250612_hct116/multiqc results/20250612_hct116/pairs 
 
 
 cd stats
@@ -235,18 +247,18 @@ cd stats
 # Create Cooler and Juicebox hic
 
 ```bash
+# Create conda env for hictk
+conda create -n hictk -c conda-forge -c bioconda python=3.10.19 hictk=2.2.0 -y
+
 # [ADD TO PIPELINE]
-#PAIRS="results_hct116/pairs/HCT116_Meth_MicroC_red_klnw.pairs.gz"
-#HIC="results_hct116/hic/HCT116_Meth_MicroC_red_klnw.hic"
+#PAIRS="results/20250612_hct116/pairs/HCT116_Meth_MicroC_red_klnw.pairs.gz"
+#HIC="results/20250612_hct116/hic/HCT116_Meth_MicroC_red_klnw.hic"
 
-PAIRS="results_hct116/pairs/HCT116_Meth_MicroC.pairs.gz"
-HIC="results_hct116/hic/HCT116_Meth_MicroC.hic"
-COOLER="results_hct116/hic/HCT116_Meth_MicroC.cool"
+PAIRS="results/20250612_hct116/pairs/HCT116_Meth_MicroC.pairs.gz"
+HIC="results/20250612_hct116/hic/HCT116_Meth_MicroC.hic"
+COOLER="results/20250612_hct116/hic/HCT116_Meth_MicroC.cool"
 
-conda activate methyl-microc
-
-# (Already included in Quick Setup Step 3, but repeated here for convenience)
-conda install -c conda-forge -c bioconda hictk=2.2.0 -y
+conda activate hictk
 
 time hictk load --format 4dn --bin-size 100kbp $PAIRS $HIC
 time hictk load --format 4dn --bin-size 100kbp $PAIRS $COOLER
