@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
 """Annotate a .pairs file with per-fragment CpG methylation strings.
 
+This script is intended to post-process PAIRS output from `pairtools parse`
+(often run with `--drop-sam`) when the input also includes
+`--add-columns pos5,pos3,cigar,seq`.
+
+Input parameters (CLI):
+  - --fasta PATH   Reference FASTA (unconverted). Must be indexed.
+  - --fai PATH     FASTA index (.fai). Default: --fasta + ".fai".
+  - --input PATH   Input .pairs(.gz). Default: "-" (stdin).
+  - --output PATH  Output .pairs(.gz). Default: "-" (stdout).
+
 The methylation string is defined over the *fragment* for each side, i.e. the
 reference interval from pos5->pos3 (5' to 3', strand-aware), NOT over the full
 read sequence.
@@ -15,8 +25,8 @@ Alphabet:
   - '0' : CpG, unmethylated (T on + strand or A on - strand)
   - '.' : CpG, but no clear call (deletion, N, other base, missing data)
 
-Requires pairs to contain: pos51,pos31,pos52,pos32,strand1,strand2,cigar1,
-cigar2,seq1,seq2.
+Requires the input pairs to contain (in its `#columns:` header):
+pos51,pos31,pos52,pos32,strand1,strand2,cigar1,cigar2,seq1,seq2.
 """
 
 from __future__ import annotations
