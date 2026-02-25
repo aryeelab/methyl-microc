@@ -1,4 +1,4 @@
-# Methyl-MicroC Analysis Environment
+# Methyl-Micro-C Analysis Environment
 
 This repository contains the methyl-microc pipeline using nf-core/methylseq.
 
