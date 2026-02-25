@@ -115,6 +115,9 @@ time ./run_methylseq.sh \
 Note that there are several steps below that are not (yet) part of the pipeline and will need to be added. For now they are done manually.
 
 # [ADD TO PIPELINE]
+
+# Name sort the bam (samtools sort -n)
+
 # Convert methylation track bedgraphs to bigwig 
 samtools faidx references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna
 
