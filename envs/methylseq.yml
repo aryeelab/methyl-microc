@@ -1,0 +1,6 @@
+name: methylseq
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - nextflow
