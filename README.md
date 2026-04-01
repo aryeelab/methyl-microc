@@ -1,6 +1,6 @@
 # Methyl-Micro-C Analysis Environment
 
-This repository contains the methyl-microc pipeline using nf-core/methylseq.
+This repository contains the nextflow methyl-microc pipeline using nf-core/methylseq.
 
 ## Prerequisites
 
@@ -95,21 +95,16 @@ The pipeline is designed to be run using the provided script:
 # Activate environment
 conda activate methyl-microc
 
-# Run the methylseq pipeline on a small test sample
-time ./run_methylseq.sh \
-    -profile conda \
-    --input tests/samplesheet.csv \
-    --outdir results \
-    --fasta $PWD/references/chr22/chr22.fa \
-    --aligner bwameth
+# Run the pipeline on a small test sample
+nextflow run main.nf \
+  --input test_input/samplesheet.csv \
+  --fasta references/chr22.fa \
+  --fai references/chr22.fa.fai
 
-# Run the methylseq pipeline on Arsh's HCT116 samples
-time ./run_methylseq.sh \
-    -profile conda \
-    --input data/20250612_hct116/samplesheet_20250612_hct116.csv \
-    --outdir results/20250612_hct116 \
-    --fasta $PWD/references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna \
-    --aligner bwameth    
+# Run the pipeline on Arsh's HCT116 samples
+ 
+
+
 
 
 Note that there are several steps below that are not (yet) part of the pipeline and will need to be added. For now they are done manually.
@@ -125,104 +120,8 @@ cat results/20250612_hct116/methyldackel/HCT116_Meth_MicroC.markdup.sorted_CpG.b
 time python bin/bedgraph_to_bigwig.py tmp.bedGraph results/20250612_hct116/methyldackel/HCT116_Meth_MicroC.markdup.sorted_CpG.bw references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.fai
 
 ```
+For a more detailed explanation of the pipeline structure and components, please refer to the documentation in the docs/ directory.
 
-
-# Parse pairs from the bam. (i.e. infer fragments and ligation junctions from the reads)
-```bash
-# [ADD TO PIPELINE]
-conda create -n pairtools -c conda-forge -c bioconda \
-  python=3.10.19 \
-  pairtools=1.1.3 \
-  pysam=0.23.0 \
-  -y
-# NOTE: On Mac OS (arm64) `pairtools parse --add-columns ... seq` crashes
-# with a bus error for some newer pysam builds. A known-good pin is `pysam=0.23.0`.
-
-# Test sample
-CHROM_SIZES="references/chr22/chr22.fa.fai"
-BAM="results/bwameth/deduplicated/test_sample.markdup.sorted.bam"
-PAIRS="results/pairs/test_sample.pairs.gz"
-STATS="results/pairs/test_sample.stats.txt" 
-mkdir -p results/pairs
-
-# HCT116
-CHROM_SIZES="references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.fai"
-BAM="results/20250612_hct116/bwameth/deduplicated/HCT116_Meth_MicroC.markdup.sorted.bam"
-PAIRS="results/20250612_hct116/pairs/HCT116_Meth_MicroC.pairs.gz"
-STATS="results/20250612_hct116/pairs/HCT116_Meth_MicroC.stats.txt"
-mkdir -p results/20250612_hct116/pairs
-
-conda activate pairtools
-time pairtools parse --min-mapq 30 --walks-policy 5unique \
-        --max-inter-align-gap 30 --drop-sam --add-columns pos5,pos3,cigar,seq \
-        --nproc-in 8 --nproc-out 8 --chroms-path ${CHROM_SIZES} \
-        $BAM | \
-        pairtools sort --nproc 4  | \
-        pairtools dedup -o $PAIRS --output-stats $STATS
-```
-
-# Annotate pairs with methylation information
-```bash
-# Append per-fragment methylation strings (meth1/meth2) using the reference FASTA
-# (requires the FASTA to be indexed: samtools faidx reference.fa)
-# NOTE: the annotator requires the `cigar{1,2}` and `seq{1,2}` columns added by pairtools parse.
-#
-# Test sample
-# time python bin/annotate_pairs_methylation.py \
-#     --fasta references/chr22/chr22.fa \
-#     --input  $PAIRS \
-#     --output results/pairs/test_sample.meth.pairs.gz
-
-
-# Test sample
-METH_PAIRS="results/pairs/test_sample.meth.pairs.gz"
-REF="references/chr22/chr22.fa"
-
-# HCT116
-METH_PAIRS="results/20250612_hct116/pairs/HCT116_Meth_MicroC.meth.pairs.gz"
-REF="references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna"
-
-time python bin/annotate_pairs_methylation.py \
-    --fasta "${REF}" \
-    --input  $PAIRS \
-    --output "${METH_PAIRS}"
-
-
-# Validate methylation annotation on the first pair
-#
-# This sanity check demonstrates that meth1/meth2 are correctly generated.
-# It:
-#   1) extracts the first (non-header) pair from results/pairs/test_sample.meth.pairs.gz
-#   2) fetches the reference sequence spanning pos5..pos3 (inclusive) from the FASTA
-#   3) checks that len(meth) == abs(pos3-pos5)+1 and that CpG sites in the reference align
-#      to CpG calls in the methylation string.
-#
-# Methylation encoding (per base of the fragment span):
-#   '1' = methylated CpG
-#   '0' = unmethylated CpG
-#   '-' = not a CpG position in the reference
-#   '.' = unclear / no-call
-#
-# Coordinate convention:
-#   pairtools reports pos5 and pos3 for each side. The analyzed fragment span is the inclusive
-#   region between these endpoints; its length is abs(pos3-pos5)+1.
-
-PAIRS_METH="results/pairs/test_sample.meth.pairs.gz"
-FASTA="references/chr22/chr22.fa"
-python bin/validate_pairs_methylation.py --pairs "${PAIRS_METH}" --fasta "${FASTA}" --record 3
-
-# Or validate a specific record by readID:
-READ_ID="LH00547:129:233G5FLT3:8:1101:31194:1673"
-python bin/validate_pairs_methylation.py --pairs "${PAIRS_METH}" --fasta "${FASTA}" --readID "${READ_ID}"
-
-gunzip -c results/pairs/test_sample.meth.pairs.gz | head -n 10
-
-# HCT116
-#python bin/annotate_pairs_methylation.py \
-#   --fasta references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna \
-#   --input  $pairs \
-#   --output results/20250612_hct116/pairs/HCT116_Meth_MicroC.meth.pairs.gz
-```
 
 
 
