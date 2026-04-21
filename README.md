@@ -1,6 +1,6 @@
 # Methyl-Micro-C Analysis Environment
 
-This repository contains the nextflow methyl-microc pipeline using nf-core/methylseq.
+This repository contains the nextflow methyl-microc pipeline.
 
 ## Prerequisites
 
@@ -102,7 +102,11 @@ nextflow run main.nf \
   --fai references/chr22.fa.fai
 
 # Run the pipeline on Arsh's HCT116 samples
- 
+
+nextflow run main.nf \
+--input full_data/samplesheet.csv \
+--fasta references/GRCh38.fa \
+--fai references/GRCh38.fa.fai \
 
 
 
@@ -122,8 +126,70 @@ time python bin/bedgraph_to_bigwig.py tmp.bedGraph results/20250612_hct116/methy
 ```
 For a more detailed explanation of the pipeline structure and components, please refer to the documentation in the docs/ directory.
 
+# Execution Modes: Local vs Cluster
+
+This pipeline supports two execution modes via Nextflow profiles:
+
+local → run on a single machine (e.g. laptop or interactive node)  
+
+cluster → submit jobs to an HPC scheduler (SLURM on O2)
+
+## Local Mode
+
+Runs all steps sequentially on the current machine.
+
+```bash
+nextflow run main.nf \
+  --input test_input/samplesheet.csv \
+  --fasta references/chr22.fa \
+  --fai references/chr22.fa.fai \
+  -profile local
+```
+
+## Cluster Mode (SLURM)
+
+Runs each process as a separate SLURM job.
+
+```bash
+nextflow run main.nf \
+--input test_input/samplesheet.csv \
+--fasta references/chr22.fa \
+--fai references/chr22.fa.fai \
+-profile cluster
+```
 
 
+# Working directory
+
+By default, Nextflow uses its standard work/ directory under the current project directory for intermediate files.
+Users who prefer a different working directory can override this at runtime using Nextflow’s built-in -work-dir option. For example:
+
+```bash
+nextflow run main.nf \
+  --input test_input/samplesheet.csv \
+  --fasta references/chr22.fa \
+  --fai references/chr22.fa.fai \
+  -profile cluster \
+  -work-dir /path/to/custom/work
+```
+ 
+This allows the pipeline to remain portable by default while still supporting site-specific optimizations such as scratch storage.
+
+# Environment configuration
+
+The default configuration uses the environment YAML files under envs/, making the pipeline portable across systems.
+Site-specific overrides, such as prebuilt environments on O2, can be provided through an additional config file, for example:
+
+```bash
+nextflow run main.nf \
+  --input test_input/samplesheet.csv \
+  --fasta references/chr22.fa \
+  --fai references/chr22.fa.fai \
+  -profile cluster \
+  -c o2_lab.config
+```
+
+This separates the portable default configuration from system-specific optimizations.
 
 # QC
 ```bash
