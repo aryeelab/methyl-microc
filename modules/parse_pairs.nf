@@ -1,16 +1,24 @@
 process PARSE_PAIRS {
 
-    publishDir "results/pairs", mode: 'copy'
+    publishDir "${params.outdir}/pairs", mode: 'copy'
 
     input:
     path bam
     path fai
 
     output:
-    path "test_sample.pairs.gz", emit: pairs
-    path "test_sample.stats.txt", emit: stats
+    path "*.pairs.gz",   emit: pairs
+    path "*.stats.txt",  emit: stats
 
     script:
+    def sample_id = bam.name
+        .replaceFirst(/\.markdup\.sorted\.bam$/, '')
+        .replaceFirst(/\.bam$/, '')
+
+    def total_cpus   = task.cpus as int
+    def parse_threads = Math.max(1, total_cpus.intdiv(2))
+    def sort_threads  = Math.max(1, total_cpus.intdiv(4))
+
     """
     pairtools parse \
         --min-mapq 30 \
@@ -18,11 +26,11 @@ process PARSE_PAIRS {
         --max-inter-align-gap 30 \
         --drop-sam \
         --add-columns pos5,pos3,cigar,seq \
-        --nproc-in 8 \
-        --nproc-out 8 \
+        --nproc-in ${parse_threads} \
+        --nproc-out ${parse_threads} \
         --chroms-path $fai \
         $bam | \
-        pairtools sort --nproc 4 | \
-        pairtools dedup -o test_sample.pairs.gz --output-stats test_sample.stats.txt
+        pairtools sort --nproc ${sort_threads} | \
+        pairtools dedup -o ${sample_id}.pairs.gz --output-stats ${sample_id}.stats.txt
     """
 }
