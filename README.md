@@ -83,6 +83,50 @@ gunzip GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz
 cd ../..
 ```
 
+### Step 5: Create Prebuilt Environments (Recommended for O2)
+
+
+```bash
+mkdir -p prebuilt_envs
+
+mamba env create -p prebuilt_envs/methyl -f envs/methyl.yml
+mamba env create -p prebuilt_envs/methylseq -f envs/methylseq.yml
+mamba env create -p prebuilt_envs/pairtools -f envs/pairtools.yml
+
+## Create a file named `o2_lab.config`:
+
+process {
+    withName: SPLIT_FASTQ {
+        conda = "${projectDir}/prebuilt_envs/methyl"
+    }
+
+    withName: RUN_METHYLSEQ {
+        conda = "${projectDir}/prebuilt_envs/methylseq"
+
+        beforeScript = '''
+            export USE_PREBUILT_METHYLSEQ_ENV=true
+            export CONDA_NO_PLUGINS=true
+        '''
+    }
+
+    withName: PARSE_PAIRS {
+        conda = "${projectDir}/prebuilt_envs/pairtools"
+    }
+
+    withName: MERGE_DEDUP_PAIRS {
+        conda = "${projectDir}/prebuilt_envs/pairtools"
+    }
+
+    withName: ANNOTATE_PAIRS {
+        conda = "${projectDir}/prebuilt_envs/methyl"
+    }
+
+    withName: VALIDATE_PAIRS {
+        conda = "${projectDir}/prebuilt_envs/methyl"
+    }
+}
+```
+
 
 
 ## Usage
@@ -177,7 +221,7 @@ This allows the pipeline to remain portable by default while still supporting si
 
 # Environment configuration
 
-The default configuration uses the environment YAML files under envs/, making the pipeline portable across systems.
+The default configuration uses the environment YAML files under envs/, making the pipeline portable across systems.  
 Site-specific overrides, such as prebuilt environments on O2, can be provided through an additional config file, for example:
 
 ```bash
@@ -189,7 +233,32 @@ nextflow run main.nf \
   -c o2_lab.config
 ```
 
-This separates the portable default configuration from system-specific optimizations.
+This separates the portable default configuration from system-specific optimizations.  
+
+## Non prebuilt mode may fail!
+When running the pipeline without prebuilt environments, an additional step is required internally by the nf-core/methylseq workflow:  
+**Conda environments are created dynamically at runtime.**  
+  
+  On shared HPC systems like O2, environment creation can be unreliable due to limitations like:  
+  
+- Multiple jobs run concurrently  
+- The filesystem is shared 
+- Conda frequently reads and writes cache files
+
+These may lead to:
+  - Conda environment creation failures  
+- Corrupted cache files
+
+
+## Recommend usage
+
+Prebuilt environment eliminates the main source of instability and improves efficiency overall by:
+- Using environments that are already created  
+- Does not invoke Conda at runtime  
+- Avoids repeated access to shared cache
+
+For stable execution, we recommend using the -c flag.
+
 
 # QC
 ```bash
