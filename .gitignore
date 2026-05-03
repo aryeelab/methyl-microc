@@ -1,3 +1,6 @@
 work/
 .nextflow*
 results/
+full_data/
+prebuilt_envs/
+references/

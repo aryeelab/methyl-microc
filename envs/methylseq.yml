@@ -1,6 +1,22 @@
 name: methylseq
+
 channels:
-  - bioconda
   - conda-forge
+  - bioconda
+  - nodefaults
+
 dependencies:
+  - python=3.10
+  - openjdk=17
   - nextflow
+  - nf-core
+  - bwameth
+  - bwa
+  - samtools
+  - picard
+  - trim-galore
+  - cutadapt
+  - pigz
+  - fastqc
+  - multiqc
+  - methyldackel
