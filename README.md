@@ -170,7 +170,34 @@ time python bin/bedgraph_to_bigwig.py tmp.bedGraph results/20250612_hct116/methy
 ```
 For a more detailed explanation of the pipeline structure and components, please refer to the documentation in the docs/ directory.
 
-# Execution Modes: Local vs Cluster
+## Input splitting
+
+The pipeline supports splitting FASTQ files into chunks for parallel processing using the parameter (default to 20M):
+
+```bash
+--reads_per_chunk
+```
+
+This parameter specifies the **number of read pairs per chunk**. For example:
+```bash
+--reads_per_chunk 20000000
+```
+
+means each chunk contains approximately **20 million read pairs** .  
+Paired-end reads (R1/R2) are always kept synchronized, and the last chunk may contain fewer reads.  
+
+### Practical guidance
+
+Based on current performance on O2:
+
+| reads_per_chunk | Approx runtime per job |
+|----------------|----------------------|
+| 10M            | ~3-4 hours           |
+| 20M            | ~6-7 hours           |
+| 40M            | ~10+ hours           |
+
+
+## Execution Modes: Local vs Cluster
 
 This pipeline supports two execution modes via Nextflow profiles:
 
@@ -178,7 +205,7 @@ local → run on a single machine (e.g. laptop or interactive node)
 
 cluster → submit jobs to an HPC scheduler (SLURM on O2)
 
-## Local Mode
+### Local Mode
 
 Runs all steps sequentially on the current machine.
 
@@ -190,7 +217,7 @@ nextflow run main.nf \
   -profile local
 ```
 
-## Cluster Mode (SLURM)
+### Cluster Mode (SLURM)
 
 Runs each process as a separate SLURM job.
 
@@ -203,7 +230,7 @@ nextflow run main.nf \
 ```
 
 
-# Working directory
+## Working directory
 
 By default, Nextflow uses its standard work/ directory under the current project directory for intermediate files.
 Users who prefer a different working directory can override this at runtime using Nextflow’s built-in -work-dir option. For example:
@@ -219,7 +246,7 @@ nextflow run main.nf \
  
 This allows the pipeline to remain portable by default while still supporting site-specific optimizations such as scratch storage.
 
-# Environment configuration
+## Environment configuration
 
 The default configuration uses the environment YAML files under envs/, making the pipeline portable across systems.  
 Site-specific overrides, such as prebuilt environments on O2, can be provided through an additional config file, for example:
@@ -235,7 +262,7 @@ nextflow run main.nf \
 
 This separates the portable default configuration from system-specific optimizations.  
 
-## Non prebuilt mode may fail!
+### Non prebuilt mode may fail!
 When running the pipeline without prebuilt environments, an additional step is required internally by the nf-core/methylseq workflow:  
 **Conda environments are created dynamically at runtime.**  
   
@@ -250,7 +277,7 @@ These may lead to:
 - Corrupted cache files
 
 
-## Recommend usage
+### Recommend usage
 
 Prebuilt environment eliminates the main source of instability and improves efficiency overall by:
 - Using environments that are already created  
