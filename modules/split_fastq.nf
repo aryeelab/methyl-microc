@@ -2,7 +2,7 @@ process SPLIT_FASTQ {
 
     input:
     tuple val(sample_id), path(r1), path(r2)
-    val n_chunks
+    val reads_per_chunk
 
     output:
     path "chunks/${sample_id}.chunks.tsv", emit: manifest
@@ -19,7 +19,10 @@ from pathlib import Path
 sample_id = "${sample_id}"
 r1_path = Path("${r1}")
 r2_path = Path("${r2}")
-n_chunks = int("${n_chunks}")
+reads_per_chunk = int("${reads_per_chunk}")
+
+if reads_per_chunk <= 0:
+    raise ValueError("reads_per_chunk must be a positive integer")
 
 outdir = Path("chunks")
 outdir.mkdir(exist_ok=True)
@@ -62,7 +65,7 @@ with gzip.open(r1_path, "rt") as f1, gzip.open(r2_path, "rt") as f2:
         if h1_core != h2_core:
             raise RuntimeError(f"Read pair mismatch: {h1} vs {h2}")
 
-        chunk_id = f"chunk{(read_idx % n_chunks) + 1:03d}"
+        chunk_id = f"chunk{(read_idx // reads_per_chunk) + 1:03d}"
         w1, w2, _, _ = get_writers(chunk_id)
         w1.write("".join(rec1))
         w2.write("".join(rec2))
@@ -77,7 +80,7 @@ with manifest.open("w") as fout:
     for row in manifest_rows:
         fout.write("\\t".join(row) + "\\n")
 
-print(f"Split {read_idx} read pairs from sample {sample_id} into {len(manifest_rows)} chunk(s).")
+print(f"Split {read_idx} read pairs from sample {sample_id} into {len(manifest_rows)} chunk(s), with up to {reads_per_chunk} read pairs per chunk.")
 PY
     """
 }

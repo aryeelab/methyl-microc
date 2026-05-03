@@ -7,12 +7,12 @@ include { MERGE_DEDUP_PAIRS }  from './modules/merge_dedup_pairs'
 include { ANNOTATE_PAIRS }     from './modules/annotate_pairs'
 include { VALIDATE_PAIRS }     from './modules/validate_pairs'
 
-params.outdir       = "results"
-params.fasta        = null
-params.fai          = null
-params.input        = null
-params.bam          = null
-params.split_chunks = 4
+params.outdir          = "results"
+params.fasta           = null
+params.fai             = null
+params.input           = null
+params.bam             = null
+params.reads_per_chunk = 20_000_000
 
 workflow {
 
@@ -47,16 +47,16 @@ workflow {
             }
             .set { samples_ch }
 
-        SPLIT_FASTQ(samples_ch, params.split_chunks)
+        SPLIT_FASTQ(samples_ch, params.reads_per_chunk)
 
         chunk_fastq_ch = SPLIT_FASTQ.out.manifest
             .splitCsv(sep: '\t', header: false)
             .map { row ->
                 tuple(
-                    row[0].toString(),                  // sample_id
-                    row[1].toString(),                  // chunk_id
-                    file(row[2].toString()),            // chunk R1
-                    file(row[3].toString())             // chunk R2
+                    row[0].toString(),
+                    row[1].toString(),
+                    file(row[2].toString()),
+                    file(row[3].toString())
                 )
             }
 
