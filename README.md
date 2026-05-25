@@ -96,12 +96,16 @@ mamba env create -p prebuilt_envs/pairtools -f envs/pairtools.yml
 ## Create a file named `o2_lab.config`:
 
 process {
+    withName: READ_QC {
+        conda = '/n/data1/dfci/pathonc/johnstone/lab/huc530/methyl_microc_lab/prebuilt_envs/methyl'
+    }
+
     withName: SPLIT_FASTQ {
-        conda = "${projectDir}/prebuilt_envs/methyl"
+        conda = '/n/data1/dfci/pathonc/johnstone/lab/huc530/methyl_microc_lab/prebuilt_envs/methyl'
     }
 
     withName: RUN_METHYLSEQ {
-        conda = "${projectDir}/prebuilt_envs/methylseq"
+        conda = '/n/data1/dfci/pathonc/johnstone/lab/huc530/methyl_microc_lab/prebuilt_envs/methylseq'
 
         beforeScript = '''
             export USE_PREBUILT_METHYLSEQ_ENV=true
@@ -110,19 +114,19 @@ process {
     }
 
     withName: PARSE_PAIRS {
-        conda = "${projectDir}/prebuilt_envs/pairtools"
+        conda = '/n/data1/dfci/pathonc/johnstone/lab/huc530/methyl_microc_lab/prebuilt_envs/pairtools'
     }
 
     withName: MERGE_DEDUP_PAIRS {
-        conda = "${projectDir}/prebuilt_envs/pairtools"
+        conda = '/n/data1/dfci/pathonc/johnstone/lab/huc530/methyl_microc_lab/prebuilt_envs/pairtools'
     }
 
     withName: ANNOTATE_PAIRS {
-        conda = "${projectDir}/prebuilt_envs/methyl"
+        conda = '/n/data1/dfci/pathonc/johnstone/lab/huc530/methyl_microc_lab/prebuilt_envs/methyl'
     }
 
     withName: VALIDATE_PAIRS {
-        conda = "${projectDir}/prebuilt_envs/methyl"
+        conda = '/n/data1/dfci/pathonc/johnstone/lab/huc530/methyl_microc_lab/prebuilt_envs/methyl'
     }
 }
 ```
