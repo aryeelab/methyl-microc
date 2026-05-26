@@ -125,6 +125,14 @@ process {
         conda = '/n/data1/dfci/pathonc/johnstone/lab/huc530/methyl_microc_lab/prebuilt_envs/methyl'
     }
 
+    withName: PAIR_QC {
+        conda = '/n/data1/dfci/pathonc/johnstone/lab/huc530/methyl_microc_lab/prebuilt_envs/methyl'
+    }
+
+    withName: METHYLATION_QC {
+        conda = '/n/data1/dfci/pathonc/johnstone/lab/huc530/methyl_microc_lab/prebuilt_envs/methyl'
+    }
+
     withName: VALIDATE_PAIRS {
         conda = '/n/data1/dfci/pathonc/johnstone/lab/huc530/methyl_microc_lab/prebuilt_envs/methyl'
     }
