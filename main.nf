@@ -1,10 +1,13 @@
 nextflow.enable.dsl=2
 
+include { READ_QC }            from './modules/read_qc'
 include { SPLIT_FASTQ }        from './modules/split_fastq'
 include { RUN_METHYLSEQ }      from './modules/run_methylseq'
 include { PARSE_PAIRS }        from './modules/parse_pairs'
 include { MERGE_DEDUP_PAIRS }  from './modules/merge_dedup_pairs'
+include { PAIR_QC }            from './modules/pair_qc'
 include { ANNOTATE_PAIRS }     from './modules/annotate_pairs'
+include { METHYLATION_QC }     from './modules/methylation_qc'
 include { VALIDATE_PAIRS }     from './modules/validate_pairs'
 
 params.outdir          = "results"
@@ -47,6 +50,8 @@ workflow {
             }
             .set { samples_ch }
 
+        READ_QC(samples_ch)
+
         SPLIT_FASTQ(samples_ch, params.reads_per_chunk)
 
         chunk_fastq_ch = SPLIT_FASTQ.out.manifest
@@ -79,11 +84,15 @@ workflow {
 
     MERGE_DEDUP_PAIRS(grouped_pairs_ch)
 
+    PAIR_QC(MERGE_DEDUP_PAIRS.out.pairs)
+
     ANNOTATE_PAIRS(
         MERGE_DEDUP_PAIRS.out.pairs,
         file(params.fasta),
         file(params.fai)
     )
+
+    METHYLATION_QC(ANNOTATE_PAIRS.out.meth_pairs)
 
     VALIDATE_PAIRS(
         ANNOTATE_PAIRS.out.meth_pairs,
