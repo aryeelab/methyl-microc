@@ -6,15 +6,20 @@ methyl-microc/
 ├── nextflow.config
 ├── o2_lab.config
 ├── modules/
+│   ├── read_qc.nf
 │   ├── split_fastq.nf
 │   ├── run_methylseq.nf
 │   ├── parse_pairs.nf
 │   ├── merge_dedup_pairs.nf
+│   ├── pair_qc.nf
 │   ├── annotate_pairs.nf
+│   ├── methylation_qc.nf
 │   └── validate_pairs.nf
 ├── bin/
 │   ├── annotate_pairs_methylation.py
-│   └── validate_pairs_methylation.py
+│   ├── validate_pairs_methylation.py
+│   ├── pair_level_qc.py
+│   └── methylation_qc.py
 ├── envs/
 │   ├── methylseq.yml
 │   ├── pairtools.yml
@@ -30,11 +35,14 @@ methyl-microc/
 ### Workflow
 
 ```text
-SPLIT_FASTQ
-→ RUN_METHYLSEQ per chunk   (parallel)
-→ PARSE_PAIRS per chunk     (parse + sort only, no dedup)
-→ MERGE_DEDUP_PAIRS         (global merge + dedup)
+READ_QC                         (parallel with SPLIT_FASTQ)
+→ SPLIT_FASTQ
+→ RUN_METHYLSEQ per chunk      (parallel)
+→ PARSE_PAIRS per chunk        (parse + sort only, no dedup)
+→ MERGE_DEDUP_PAIRS            (global merge + dedup)
+→ PAIR_QC                      (parallel with ANNOTATE_PAIRS)
 → ANNOTATE_PAIRS
+→ METHYLATION_QC               (parallel with VALIDATE_PAIRS)
 → VALIDATE_PAIRS
 ```
 
@@ -56,6 +64,9 @@ SPLIT_FASTQ
 
 ### modules/ 
 
+* read_qc.nf  
+  Generates read-level QC reports using FastQC and MultiQC.
+
 * split_fastq.nf  
   Splits paired-end FASTQ files into chunks based on # reads_per_chunk for parallel processing.
 
@@ -68,17 +79,24 @@ SPLIT_FASTQ
 * merge_dedup_pairs.nf  
   Merges and deduplicates pairs files generated from multiple FASTQ chunks.
 
+* pair_qc.nf  
+  Generates pair-level QC metrics and plots from final deduplicated pairs.
+
 * annotate_pairs.nf  
   Adds per-fragment methylation information to each pair using the reference FASTA.
+
+* methylation_qc.nf  
+  Generates methylation bias QC plots from annotated methylation pairs.
   
 * validate_pairs.nf  
   Checks that the final annotated pairs file are correctly generated.
 
 
+
 ### Supporting components
 
 * bin/  
-  Contains custom Python scripts for methylation annotation and validation.
+  Contains custom Python scripts for methylation annotation, validation, and QC generation.
 
 * envs/  
   Defines conda environments required for different pipeline steps.
