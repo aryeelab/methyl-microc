@@ -145,7 +145,7 @@ process {
 
 ### Running the Pipeline
 
-The pipeline is designed to be run using the provided script:
+The pipeline is designed to be run using the provided script (the flags are explained below):
 
 ```bash
 # Activate environment
@@ -155,29 +155,21 @@ conda activate methyl-microc
 nextflow run main.nf \
   --input test_input/samplesheet.csv \
   --fasta references/chr22.fa \
-  --fai references/chr22.fa.fai
+  --fai references/chr22.fa.fai \
+  --reads_per_chunk 20000000 \
+  -profile cluster \
+  -c o2_lab.config \
+  -work-dir /path/to/custom/work
 
 # Run the pipeline on Arsh's HCT116 samples
-
 nextflow run main.nf \
 --input full_data/samplesheet.csv \
 --fasta references/GRCh38.fa \
 --fai references/GRCh38.fa.fai \
-
-
-
-
-Note that there are several steps below that are not (yet) part of the pipeline and will need to be added. For now they are done manually.
-
-# [ADD TO PIPELINE]
-
-# Name sort the bam (samtools sort -n)
-
-# Convert methylation track bedgraphs to bigwig 
-samtools faidx references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna
-
-cat results/20250612_hct116/methyldackel/HCT116_Meth_MicroC.markdup.sorted_CpG.bedGraph | grep -v KI | grep -v GL | grep -v random > tmp.bedGraph
-time python bin/bedgraph_to_bigwig.py tmp.bedGraph results/20250612_hct116/methyldackel/HCT116_Meth_MicroC.markdup.sorted_CpG.bw references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.fai
+--reads_per_chunk 20000000 \
+-profile cluster \
+-c o2_lab.config \
+-work-dir /path/to/custom/work
 
 ```
 For a more detailed explanation of the pipeline structure and components, please refer to the documentation in the docs/ directory.
@@ -195,7 +187,7 @@ This parameter specifies the **number of read pairs per chunk**. For example:
 --reads_per_chunk 20000000
 ```
 
-means each chunk contains approximately **20 million read pairs** .  
+means each chunk contains **20 million read pairs**.  
 Paired-end reads (R1/R2) are always kept synchronized, and the last chunk may contain fewer reads.  
 
 ### Practical guidance
@@ -299,53 +291,25 @@ Prebuilt environment eliminates the main source of instability and improves effi
 For stable execution, we recommend using the -c flag.
 
 
-# QC
+## QC
+
+The pipeline currently includes three QC modules:
+
+- Read-level QC (READ_QC)  
+Includes read quality, GC content, adapter content, sequence length distribution, and overrepresented sequences.
+- Pair-level QC (PAIR_QC)  
+Includes cis/trans ratio, percentage of cis pairs >10 kb, distance distribution, and fragment length distribution.
+- Methylation-level QC (METHYLATION_QC)  
+Includes methylation bias analysis.
+
+All QC reports are generated in:
+
 ```bash
-# [ADD TO PIPELINE]
-conda activate methyl-microc
-
-# (Already included in Quick Setup Step 3, but repeated here for convenience)
-conda install -c conda-forge -c bioconda multiqc=1.30 -y
-
-# If you specifically need the open2c fork of MultiQC (e.g. for extra pairtools-related modules),
-# install it via pip instead and skip the conda MultiQC install above:
-# python -m pip install git+https://github.com/open2c/MultiQC.git
-
-multiqc -f -o results/20250612_hct116/multiqc results/20250612_hct116/pairs 
-
-
-cd stats
-
-
+results/qc/
 ```
 
 
-
-# Create Cooler and Juicebox hic
-
-```bash
-# Create conda env for hictk
-conda create -n hictk -c conda-forge -c bioconda python=3.10.19 hictk=2.2.0 -y
-
-# [ADD TO PIPELINE]
-#PAIRS="results/20250612_hct116/pairs/HCT116_Meth_MicroC_red_klnw.pairs.gz"
-#HIC="results/20250612_hct116/hic/HCT116_Meth_MicroC_red_klnw.hic"
-
-PAIRS="results/20250612_hct116/pairs/HCT116_Meth_MicroC.pairs.gz"
-HIC="results/20250612_hct116/hic/HCT116_Meth_MicroC.hic"
-COOLER="results/20250612_hct116/hic/HCT116_Meth_MicroC.cool"
-
-conda activate hictk
-
-time hictk load --format 4dn --bin-size 100kbp $PAIRS $HIC
-time hictk load --format 4dn --bin-size 100kbp $PAIRS $COOLER
-
-
-```
-
-
-
-### Input Format
+## Input Format
 
 Create a samplesheet.csv file with your samples:
 
