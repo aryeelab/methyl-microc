@@ -1,0 +1,3 @@
+sample,fastq_1,fastq_2
+test_sample,test_input/tiny_r1.fastq.gz,test_input/tiny_r2.fastq.gz
+small_sample,test_input/small_r1.fastq.gz,test_input/small_r2.fastq.gz

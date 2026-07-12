@@ -9,20 +9,28 @@ process PARSE_PAIRS {
 
     script:
     def total_cpus    = task.cpus as int
-    def parse_threads = Math.max(1, total_cpus.intdiv(2))
-    def sort_threads  = Math.max(1, total_cpus.intdiv(2))
+    def sort_bam_threads = Math.max(1, total_cpus.intdiv(2))
+    def parse_threads    = Math.max(1, total_cpus.intdiv(4))
+    def sort_pair_threads = Math.max(1, total_cpus.intdiv(4))
 
     """
-    pairtools parse \\
-        --min-mapq 30 \\
-        --walks-policy 5unique \\
-        --max-inter-align-gap 30 \\
-        --drop-sam \\
-        --add-columns pos5,pos3,cigar,seq \\
-        --nproc-in ${parse_threads} \\
-        --nproc-out ${parse_threads} \\
-        --chroms-path $fai \\
-        $bam | \\
-        pairtools sort --nproc ${sort_threads} -o ${sample_id}.${chunk_id}.sorted.pairs.gz
+    samtools sort -n \
+        -@ ${sort_bam_threads} \
+        -o ${sample_id}.${chunk_id}.namesorted.bam \
+        $bam
+
+    samtools view -H ${sample_id}.${chunk_id}.namesorted.bam | grep '^@HD'
+
+    pairtools parse \
+        --min-mapq 30 \
+        --walks-policy 5unique \
+        --max-inter-align-gap 30 \
+        --drop-sam \
+        --add-columns pos5,pos3,cigar,seq \
+        --nproc-in ${parse_threads} \
+        --nproc-out ${parse_threads} \
+        --chroms-path $fai \
+        ${sample_id}.${chunk_id}.namesorted.bam | \
+        pairtools sort --nproc ${sort_pair_threads} -o ${sample_id}.${chunk_id}.sorted.pairs.gz
     """
 }

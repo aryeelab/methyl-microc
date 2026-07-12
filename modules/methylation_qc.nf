@@ -1,12 +1,14 @@
 process METHYLATION_QC {
 
-    publishDir "${params.outdir}/qc", mode: 'copy'
+    tag "${sample_id}"
+
+    publishDir "${params.outdir}/qc/${sample_id}", mode: 'copy'
 
     input:
-    path meth_pairs
+    tuple val(sample_id), path(meth_pairs)
 
     output:
-    path "methylation_level_qc.html", emit: report
+    tuple val(sample_id), path("methylation_level_qc.html"), emit: report
 
     script:
     """

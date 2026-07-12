@@ -1,12 +1,14 @@
 process PAIR_QC {
 
-    publishDir "${params.outdir}/qc", mode: 'copy'
+    tag "${sample_id}"
+
+    publishDir "${params.outdir}/qc/${sample_id}", mode: 'copy'
 
     input:
-    path pairs
+    tuple val(sample_id), path(pairs)
 
     output:
-    path "pair_level_qc.html", emit: report
+    tuple val(sample_id), path("pair_level_qc.html"), emit: report
 
     script:
     """

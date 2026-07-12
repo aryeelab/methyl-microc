@@ -26,6 +26,7 @@ workflow {
                 def sample_id = bam.name
                     .replaceFirst(/\.markdup\.sorted\.bam$/, '')
                     .replaceFirst(/\.bam$/, '')
+
                 tuple(sample_id, 'merged', bam)
             }
             .set { bam_ch }
@@ -34,6 +35,7 @@ workflow {
         if (!params.input) {
             error "Please provide --input <samplesheet.csv>"
         }
+
         if (!params.fasta) {
             error "Please provide --fasta <reference.fa>"
         }
@@ -50,8 +52,14 @@ workflow {
             }
             .set { samples_ch }
 
+        /*
+         * Read-level QC runs once per sample.
+         */
         READ_QC(samples_ch)
 
+        /*
+         * FASTQ splitting and methylseq run independently for each sample.
+         */
         SPLIT_FASTQ(samples_ch, params.reads_per_chunk)
 
         chunk_fastq_ch = SPLIT_FASTQ.out.manifest
@@ -74,25 +82,52 @@ workflow {
         bam_ch = RUN_METHYLSEQ.out.bam
     }
 
-    PARSE_PAIRS(bam_ch, file(params.fai))
+    /*
+     * Parse each BAM chunk independently.
+     */
+    PARSE_PAIRS(
+        bam_ch,
+        file(params.fai)
+    )
 
+    /*
+     * Group all parsed chunks belonging to the same sample.
+     */
     grouped_pairs_ch = PARSE_PAIRS.out.pairs
         .map { sample_id, chunk_id, pairs_file ->
             tuple(sample_id, pairs_file)
         }
         .groupTuple()
 
+    /*
+     * Produces:
+     * tuple(sample_id, sample.pairs.gz)
+     */
     MERGE_DEDUP_PAIRS(grouped_pairs_ch)
 
-    PAIR_QC(MERGE_DEDUP_PAIRS.out.pairs)
+    /*
+     * Pair-level QC retains sample_id.
+     */
+    PAIR_QC(
+        MERGE_DEDUP_PAIRS.out.pairs
+    )
 
+    /*
+     * Methylation annotation retains sample_id.
+     */
     ANNOTATE_PAIRS(
         MERGE_DEDUP_PAIRS.out.pairs,
         file(params.fasta),
         file(params.fai)
     )
 
-    METHYLATION_QC(ANNOTATE_PAIRS.out.meth_pairs)
+    /*
+     * Both downstream processes receive:
+     * tuple(sample_id, sample.meth.pairs.gz)
+     */
+    METHYLATION_QC(
+        ANNOTATE_PAIRS.out.meth_pairs
+    )
 
     VALIDATE_PAIRS(
         ANNOTATE_PAIRS.out.meth_pairs,
