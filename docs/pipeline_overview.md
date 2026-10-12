@@ -85,13 +85,13 @@ READ_QC                         (parallel with SPLIT_FASTQ)
 * run_methylseq.nf  
   Aligns sequencing reads to the reference genome and generates BAM files.
 
-* merge_global_bam.nf
+* merge_global_bam.nf  
   Merges chunk-level BAM files for each sample, performs global duplicate marking, coordinate sorts the BAM, and generates a BAM index.
 
-* methyldackel_extract.nf
+* methyldackel_extract.nf  
   Generates MethylDackel intermediate files from the final globally merged and duplicate marked BAM.
 
-* methyldackel_mbias.nf
+* methyldackel_mbias.nf  
   Generates MethylDackel M-bias outputs for CpG, CHG, and CHH contexts.
 
 * parse_pairs.nf  
@@ -100,7 +100,7 @@ READ_QC                         (parallel with SPLIT_FASTQ)
 * merge_dedup_pairs.nf  
   Merges and deduplicates pairs files generated from multiple FASTQ chunks.
 
-* build_matrices.nf
+* build_matrices.nf  
   Generates contact matrix intermediates from the final deduplicated pairs using hictk, and creates a temporary pairs file with chromosome headers ordered according to the reference FAI. 
 
 * pair_qc.nf  
