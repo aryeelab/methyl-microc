@@ -1,0 +1,10 @@
+name: hictk
+
+channels:
+  - conda-forge
+  - bioconda
+  - nodefaults
+
+dependencies:
+  - hictk=2.2.0
+  - pigz
