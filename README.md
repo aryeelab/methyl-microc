@@ -92,6 +92,8 @@ mkdir -p prebuilt_envs
 mamba env create -p prebuilt_envs/methyl -f envs/methyl.yml
 mamba env create -p prebuilt_envs/methylseq -f envs/methylseq.yml
 mamba env create -p prebuilt_envs/pairtools -f envs/pairtools.yml
+mamba env create -p prebuilt_envs/hictk -f envs/hictk.yml
+mamba env create -p prebuilt_envs/methyldackel -f envs/methyldackel.yml
 
 ## Create a file named `o2_lab.config`:
 
@@ -113,12 +115,28 @@ process {
         '''
     }
 
+    withName: MERGE_GLOBAL_BAM {
+        conda = '/n/data1/dfci/pathonc/johnstone/lab/huc530/methyl_microc_lab/prebuilt_envs/methylseq'
+    }
+
+    withName: METHYLDACKEL_EXTRACT {
+        conda = '/n/data1/dfci/pathonc/johnstone/lab/huc530/methyl_microc_lab/prebuilt_envs/methyldackel'
+    }
+
+    withName: METHYLDACKEL_MBIAS {
+        conda = '/n/data1/dfci/pathonc/johnstone/lab/huc530/methyl_microc_lab/prebuilt_envs/methyldackel'
+    }
+
     withName: PARSE_PAIRS {
         conda = '/n/data1/dfci/pathonc/johnstone/lab/huc530/methyl_microc_lab/prebuilt_envs/pairtools'
     }
 
     withName: MERGE_DEDUP_PAIRS {
         conda = '/n/data1/dfci/pathonc/johnstone/lab/huc530/methyl_microc_lab/prebuilt_envs/pairtools'
+    }
+
+    withName: BUILD_MATRICES {
+        conda = '/n/data1/dfci/pathonc/johnstone/lab/huc530/methyl_microc_lab/prebuilt_envs/hictk'
     }
 
     withName: ANNOTATE_PAIRS {
@@ -159,7 +177,9 @@ nextflow run main.nf \
   --reads_per_chunk 20000000 \
   -profile cluster \
   -c o2_lab.config \
-  -work-dir /path/to/custom/work
+  -work-dir /path/to/custom/work \
+  --matrix_base_resolution 5000 \
+  --matrix_resolutions "5000,10000,25000,50000,100000,250000,500000,1000000" 
 
 # Run the pipeline on Arsh's HCT116 samples
 nextflow run main.nf \
@@ -289,6 +309,66 @@ Prebuilt environment eliminates the main source of instability and improves effi
 - Avoids repeated access to shared cache
 
 For stable execution, we recommend using the -c flag.
+
+## Matrix output
+
+The pipeline generates three contact matrix formats from the final deduplicated pairs:
+```text
+<sample>.cool
+<sample>.mcool
+<sample>.hic
+```
+
+The .cool and .hic files have single base resolution, while the .mcool file contains multiple resolutions.  
+  
+By default, the pipeline uses:
+```text
+base resolution: 1 kb
+multi-resolution: 1 kb, 2 kb, 5 kb, 10 kb, 20 kb, 50 kb, 100 kb, 200 kb, 500 kb, 1 Mb, 2 Mb, 5 Mb, 10 Mb
+```
+
+The resolution can be customized using for example:
+```text
+--matrix_base_resolution 5000 \
+--matrix_resolutions "5000,10000,25000,50000,100000,250000,500000,1000000"
+```
+
+**When custom resolutions are provided, the base resolution must be included in the list.**  
+
+
+## Running many samples on O2
+
+For large batches of samples, avoid running the Nextflow pipeline directly on a login node. Instead, submit Nextflow itself as a Slurm job and let it submit the other processes automatically.  
+  
+For example:
+```bash
+#!/bin/bash
+#SBATCH --job-name=methyl_microc
+#SBATCH --output=methyl_microc_%j.out
+#SBATCH --error=methyl_microc_%j.err
+#SBATCH --time=5-00:00
+#SBATCH --mem=12G
+#SBATCH --cpus-per-task=2
+#SBATCH --partition=medium
+
+module load conda/miniforge3/24.11.3-0
+module load java/jdk-23.0.1
+conda activate methyl-microc
+
+nextflow run main.nf \
+    --input samplesheet.csv \
+    --fasta references/GRCh38.fa \
+    --fai references/GRCh38.fa.fai \
+    -profile cluster \
+    -c o2_lab.config \
+    -work-dir /n/scratch/users/$USER/methyl_microc_work/work \
+    -resume
+```
+
+Submit with:
+```bash
+sbatch run_o2.sbatch
+```
 
 
 ## QC
